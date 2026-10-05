@@ -300,6 +300,33 @@ enum CalendarParser {
         return route
     }
 
+    // MARK: Beírt hely (Indulás, Érkezés)
+
+    /// Egy beírt hely: település, és ha pontos címet is megadtak, a cím (utcával elöl, településsel a végén, mint a naptári címek).
+    struct ParsedPlace: Equatable {
+        var settlement: String
+        var address: String?
+    }
+
+    /// „Tata” vagy „Tata, Fő út 1.” (település elöl); a fordított „Fő út 1., Tata” és az irányítószám is érthető.
+    /// Nil, ha üres, vagy nem állapítható meg a település (például számjegy van a településben).
+    static func parsePlace(_ raw: String) -> ParsedPlace? {
+        var parts = raw.split(separator: ",").map { normalizeSpaces(String($0)) }.filter { !$0.isEmpty }
+        if parts.count > 1, let last = parts.last, countries.contains(fold(last)) { parts.removeLast() }
+        guard let firstRaw = parts.first else { return nil }
+        let first = stripPostalCode(firstRaw)
+        if parts.count == 1 {
+            return (!first.isEmpty && !first.contains(where: { $0.isNumber })) ? ParsedPlace(settlement: first, address: nil) : nil
+        }
+        if !first.isEmpty && !first.contains(where: { $0.isNumber }) {
+            let street = parts.dropFirst().joined(separator: ", ")
+            return ParsedPlace(settlement: first, address: street + ", " + first)
+        }
+        let p = place(parts.joined(separator: ", "))   // fordított sorrend: utca elöl, település a végén
+        guard let s = p.settlement, let a = p.address else { return nil }
+        return ParsedPlace(settlement: s, address: a)
+    }
+
     // MARK: Fő belépési pont
 
     /// Egy naptáresemény értelmezése. `now`: a pillanatnyi idő (csak a már lezajlott események kerülnek át),

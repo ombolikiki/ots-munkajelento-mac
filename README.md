@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.4.0)
+# OTS Munkajelentő Tracker (1.4.1)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -53,9 +53,12 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 - **Használati útmutató**: `docs/HASZNALATI_UTMUTATO.md` (forrás), a build ebből készít önálló HTML-t (az app Beállításaiból megnyitható) és PDF-et (`dist/`).
 - A skill (Havi munkajelentő, Költségelszámolás) már nem külső időmérő szolgáltatásból, hanem kizárólag ennek az alkalmazásnak az adatfájljából dolgozik.
 
+**1.4.1:**
+- **Utazás:** az Indulás és az Érkezés mezőbe település vagy `Tata, Fő út 1.` alakú pontos cím is írható (`Indulás cím`, `Érkezés cím` CSV-oszlop); a „Teljes címet adok meg” jelölőnégyzet megszűnt. Az oda-vissza pipa az útvonal végére az Indulást teszi, az Érkezés mindig írható (a CSV-ben az Érkezés ilyenkor az Indulás, a beírt Érkezés utolsó Munkahely).
+
 **1.4.0:**
 - **Naptárintegráció** (Mac Naptár, EventKit, egy irányú: naptár → app; csak olvas): a lezajlott események bejegyzésként átvétele (`CalendarParser.swift`, `CalendarStore.swift`, `CalendarSync.swift`, felület: `CalendarSyncView.swift`). A jelölési szabály: `docs/NAPTAR_JELOLESEK.md` (közös a webappal). A naptár a mérvadó (módosítás frissít, törlés töröl; kézi bejegyzéshez nem nyúl; másolat és törlésvédelem). „Átnézésre vár” ablak a hiányos és nem felismert eseményeknek.
-- **Pontos címek:** új CSV-oszlopok a végén: `Cím`, `Naptár azonosító` (régi fájlok olvashatók maradnak). „Teljes címet adok meg” jelölőnégyzet a kézi felvitelben. A Google Maps útvonalba a pontos cím kerül, Apple geokódolós ellenőrzéssel (`AddressChecker.swift`), tartaléknak a település.
+- **Pontos címek:** új CSV-oszlopok a végén: `Cím`, `Naptár azonosító`, `Indulás cím`, `Érkezés cím` (régi fájlok olvashatók maradnak). Az Utazás Indulás és Érkezés mezőjébe település vagy `Tata, Fő út 1.` alakú pontos cím is írható (`Indulás cím`, `Érkezés cím` oszlop); az oda-vissza pipa az útvonal végére az Indulást teszi, az Érkezés mindig írható. A Google Maps útvonalba a pontos cím kerül, Apple geokódolós ellenőrzéssel (`AddressChecker.swift`), tartaléknak a település.
 - **macOS 14+** (a Naptár teljes hozzáféréséhez); az aláíráshoz a `scripts/OTS.entitlements` tartozik (`com.apple.security.personal-information.calendars`).
 - Tesztek: a SelfTest „Naptár…” szakaszai (értelmező 2024–2035 minden negyedévre, szinkron kitalált naptárral).
 

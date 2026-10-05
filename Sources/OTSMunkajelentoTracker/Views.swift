@@ -279,15 +279,7 @@ struct ContentView: View {
 
     /// A tartalom mért magassága üres napnál (a napi lista soraitól eltekintve), laponként: ebből számoljuk, mennyi hely marad a napi listának.
     /// Ha ez elmarad a valóságtól, a felületi terhelési teszt (scripts/selftest.sh) jelzi.
-    private var baseHeight: CGFloat { formBaseHeight + addressRowsHeight }
-
-    /// A „Teljes címet adok meg” jelölő sora (és a megnyitott címmező) többletmagassága az űrlapon.
-    private var addressRowsHeight: CGFloat {
-        guard !m.type.isWholeDay || m.selectedType == nil else { return 0 }
-        return (compact ? 22 : 26) + (m.useAddress ? (compact ? 44 : 52) : 0)
-    }
-
-    private var formBaseHeight: CGFloat {
+    private var baseHeight: CGFloat {
         switch (compact, m.mode) {
         case (false, .timer): return 581
         case (false, .manual): return 552
@@ -445,21 +437,9 @@ struct FieldsView: View {
                 }
             }
 
-            if !m.type.isWholeDay || m.selectedType == nil {
-                Toggle("Teljes címet adok meg", isOn: $m.useAddress)
-                    .toggleStyle(.checkbox).controlSize(.small).font(.caption)
-                    .help("A pontos cím a Cím oszlopba kerül, és a Google Maps útvonalban is ez szerepel. A Munkahely település marad.")
-                if m.useAddress {
-                    labeled(isTravel ? "Pontos címek (több cím: ' - ' elválasztóval)" : "Pontos cím") {
-                        TextField(isTravel ? "pl. Fő u. 3., Tata - Mór u. 5., Mór" : "pl. Fő utca 3., Győr", text: $m.address)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                }
-            }
-
             if isTravel {
                 HStack(alignment: .bottom, spacing: compact ? 6 : 10) {
-                    labeled("Indulás") { placeField(text: $m.departure, prompt: "Indulás", append: false) }
+                    labeled("Indulás") { placeField(text: $m.departure, prompt: "Tata vagy Tata, Fő út 1.", append: false) }
                     arrivalCell
                 }
             }
@@ -491,7 +471,9 @@ struct FieldsView: View {
         isTravel ? "Mi volt az út célja?" : (m.type.isWholeDay ? "Megjegyzés" : "Mit csináltál? (nem kötelező)")
     }
 
-    /// Érkezés mező az „Oda-vissza” jelölővel: bejelölve az Érkezés az Indulás (Indulás - Munkahely(ek) - Indulás).
+    /// Érkezés mező az „Oda-vissza” jelölővel. Az Érkezés mindig írható: település, vagy település és pontos cím (Tata, Fő út 1.).
+    /// Nincs bejelölve: Indulás - Munkahely(ek) - Érkezés. Bejelölve az útvonal végére az Indulás is kerül (… - Érkezés - Indulás);
+    /// üresen hagyott Érkezésnél az útvonal Indulás - Munkahely(ek) - Indulás.
     private var arrivalCell: some View {
         VStack(alignment: .leading, spacing: 3) {
             if !compact {
@@ -500,19 +482,14 @@ struct FieldsView: View {
                     Spacer()
                     Toggle("Oda-vissza", isOn: $m.roundTrip)
                         .toggleStyle(.checkbox).font(.caption)
-                        .help("Oda-vissza út: az útvonal Indulás - Munkahely(ek) - Indulás, a kilométer a teljes oda-vissza távolság")
+                        .help("Oda-vissza út: az útvonal végére az Indulás is kerül (Indulás - Munkahely(ek) - Érkezés - Indulás), a kilométer a teljes oda-vissza távolság")
                 }
             }
             HStack(spacing: 4) {
-                if m.roundTrip {
-                    TextField("", text: .constant(m.trimmedDeparture.isEmpty ? "= Indulás" : m.trimmedDeparture))
-                        .textFieldStyle(.roundedBorder).disabled(true)
-                } else {
-                    placeField(text: $m.arrival, prompt: "Érkezés", append: false)
-                }
+                placeField(text: $m.arrival, prompt: m.roundTrip ? "Érkezés (nem kötelező)" : "Tata vagy Tata, Fő út 1.", append: false)
                 if compact {
                     Toggle("", isOn: $m.roundTrip).toggleStyle(.checkbox).labelsHidden()
-                        .help("Oda-vissza út (az Érkezés az Indulás)")
+                        .help("Oda-vissza út: az útvonal végére az Indulás is kerül")
                 }
             }
         }

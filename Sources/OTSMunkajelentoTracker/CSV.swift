@@ -7,7 +7,7 @@ enum CSV {
         "Azonosító", "Dátum", "Kezdés", "Vége", "Időtartam (mp)", "Időtartam (óó:pp)",
         "Indulás", "Munkahely", "Érkezés",
         "Típus kód", "Típus", "Egység", "Mennyiség", "Tevékenység", "Forrás",
-        "Cím", "Naptár azonosító"
+        "Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím"
     ]
 
     struct DecodeResult {
@@ -56,7 +56,9 @@ enum CSV {
                 e.activity,
                 e.source,
                 e.address ?? "",
-                e.calendarID ?? ""
+                e.calendarID ?? "",
+                e.departureAddress ?? "",
+                e.arrivalAddress ?? ""
             ]
             lines.append(fields.map(quote).joined(separator: ";"))
         }
@@ -89,7 +91,7 @@ enum CSV {
         }
         let iId = idx("Azonosító"), iStart = idx("Kezdés"), iEnd = idx("Vége"), iSecs = idx("Időtartam (mp)")
         let iUnit = idx("Egység"), iDep = idx("Indulás"), iArr = idx("Érkezés"), iWork = idx("Munkahely"), iQty = idx("Mennyiség"), iAct = idx("Tevékenység"), iSrc = idx("Forrás")
-        let iAddr = idx("Cím"), iCalID = idx("Naptár azonosító")
+        let iAddr = idx("Cím"), iCalID = idx("Naptár azonosító"), iDepAddr = idx("Indulás cím"), iArrAddr = idx("Érkezés cím")
 
         var entries: [Entry] = []
         var warnings: [String] = []
@@ -159,7 +161,9 @@ enum CSV {
                 departure: cell(iDep).isEmpty ? nil : cell(iDep),
                 arrival: cell(iArr).isEmpty ? nil : cell(iArr),
                 address: cell(iAddr).isEmpty ? nil : cell(iAddr),
-                calendarID: cell(iCalID).isEmpty ? nil : cell(iCalID)
+                calendarID: cell(iCalID).isEmpty ? nil : cell(iCalID),
+                departureAddress: cell(iDepAddr).isEmpty ? nil : cell(iDepAddr),
+                arrivalAddress: cell(iArrAddr).isEmpty ? nil : cell(iArrAddr)
             ))
         }
         return DecodeResult(entries: entries, warnings: warnings)

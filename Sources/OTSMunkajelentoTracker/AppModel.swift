@@ -40,12 +40,8 @@ final class AppModel: ObservableObject {
     /// Utazásnál: honnan indult / hová érkezett (a `workplace` ilyenkor a Munkahely(ek) listája).
     @Published var departure: String { didSet { ud.set(departure, forKey: "draft.departure") } }
     @Published var arrival: String { didSet { ud.set(arrival, forKey: "draft.arrival") } }
-    /// „Teljes címet adok meg”: bejelölve a pontos cím(ek) is rögzíthető(k) (a Munkahely település marad). Nem tárolódik a következő indításig.
-    @Published var useAddress = false { didSet { if !useAddress { address = "" } } }
-    /// Pontos cím(ek): a több címet ` - ` választja el (csak Utazásnál adható több).
-    @Published var address = ""
     @Published var quantity: Int { didSet { ud.set(quantity, forKey: "draft.quantity") } }
-    /// Utazásnál: oda-vissza út (az Érkezés az Indulással egyezik meg: Indulás - Munkahely(ek) - Indulás). Az utolsó választás megmarad.
+    /// Utazásnál: oda-vissza út: az útvonal végére az Indulás is kerül (Indulás - Munkahely(ek) - Érkezés - Indulás). Az utolsó választás megmarad.
     @Published var roundTrip: Bool { didSet { ud.set(roundTrip, forKey: "travel.roundTrip") } }
 
     // MARK: Gyülekezeti létszámjelentő
@@ -190,8 +186,6 @@ final class AppModel: ObservableObject {
 
     var trimmedDeparture: String { departure.trimmingCharacters(in: .whitespacesAndNewlines) }
     var trimmedArrival: String { arrival.trimmingCharacters(in: .whitespacesAndNewlines) }
-    /// A bejegyzésbe kerülő Érkezés: oda-vissza útnál az Indulás.
-    var effectiveArrival: String { roundTrip ? trimmedDeparture : trimmedArrival }
     /// A Munkahely(ek) mező elemei (vesszővel elválasztva), üres elemek nélkül.
     var workplaceList: [String] {
         workplace.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -204,55 +198,58 @@ final class AppModel: ObservableObject {
     /// (oda-vissza útnál az Érkezés az Indulás).
     var fieldsComplete: Bool { missingFieldsHint == nil && selectedType != nil }
 
-    /// A beírt pontos címek (` - ` mentén szétvágva, normalizálva); üres, ha a „Teljes címet adok meg” nincs bejelölve.
-    var addressList: [String] { useAddress ? CalendarParser.splitLocations(address) : [] }
+    /// Az Indulás és az Érkezés beírt helye: település, vagy település és pontos cím („Tata” / „Tata, Fő út 1.”).
+    var departurePlace: CalendarParser.ParsedPlace? { CalendarParser.parsePlace(departure) }
+    var arrivalPlace: CalendarParser.ParsedPlace? { CalendarParser.parsePlace(arrival) }
 
-    /// A címekből származó települések (a Munkahely, ha a felhasználó nem írt be mást).
-    private var addressSettlements: [String] {
-        var seen = Set<String>(), out: [String] = []
-        for a in addressList {
-            if let s = CalendarParser.place(a).settlement, seen.insert(CalendarParser.fold(s)).inserted { out.append(s) }
-        }
-        return out
+    /// Az Utazás összeállított útvonala a bejegyzéshez.
+    /// Oda-vissza útnál az útvonal végére az Indulás kerül (az Érkezés a bejegyzésben az Indulás), a megadott Érkezés pedig utolsó
+    /// helyként a Munkahelyek közé (kivéve, ha ugyanaz a település és nincs külön címe: például a székhely alapértéke).
+    struct TravelPlan: Equatable {
+        var departure: CalendarParser.ParsedPlace
+        var arrival: CalendarParser.ParsedPlace
+        var workplaces: [String]
+        /// A Munkahelyek közé került Érkezés pontos címe (oda-vissza útnál).
+        var stopAddress: String?
     }
 
-    /// A Munkahely(ek) lista: a beírt, ennek hiányában a címekből származó települések.
-    private var effectiveWorkplaceList: [String] { workplaceList.isEmpty ? addressSettlements : workplaceList }
-
-    /// A cím ellenőrzése; nil, ha rendben van (vagy nincs bejelölve).
-    var addressHint: String? {
-        guard useAddress, !type.isWholeDay, selectedType != nil else { return nil }
-        let list = addressList
-        if list.isEmpty { return "Add meg a pontos címet, vagy vedd ki a pipát." }
-        if !type.isTravel && list.count > 1 { return "Egy bejegyzéshez egy cím adható meg (Utazásnál több, ' - ' elválasztóval)." }
-        for a in list {
-            let p = CalendarParser.place(a)
-            if p.address == nil { return "A cím formája: utca házszám, település (vesszővel). Hibás: „\(a)”." }
-            if p.settlement == nil { return "A címből nem állapítható meg a település: „\(a)”." }
-        }
-        // A cím települése egyezzen a Munkahellyel (Utazásnál valamelyik Munkahellyel).
-        let known = effectiveWorkplaceList.map { CalendarParser.fold($0) }
-        for a in list {
-            if let s = CalendarParser.place(a).settlement, !known.contains(CalendarParser.fold(s)) {
-                return "A cím települése (\(s)) nem egyezik a Munkahellyel."
+    var travelPlan: TravelPlan? {
+        guard let dep = departurePlace else { return nil }
+        var works = workplaceList
+        var stopAddress: String?
+        let arr: CalendarParser.ParsedPlace
+        if roundTrip {
+            arr = dep
+            if let a = arrivalPlace, CalendarParser.fold(a.settlement) != CalendarParser.fold(dep.settlement) || a.address != nil {
+                if works.last.map({ CalendarParser.fold($0) != CalendarParser.fold(a.settlement) }) ?? true { works.append(a.settlement) }
+                stopAddress = a.address
             }
+        } else {
+            guard let a = arrivalPlace else { return nil }
+            arr = a
         }
-        return nil
+        return TravelPlan(departure: dep, arrival: arr, workplaces: works, stopAddress: stopAddress)
+    }
+
+    private func placeHint(_ raw: String, name: String) -> String? {
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, CalendarParser.parsePlace(t) == nil else { return nil }
+        return "\(name): település, vagy település és cím vesszővel (például Tata, Fő út 1.)."
     }
 
     var missingFieldsHint: String? {
         if selectedType == nil { return "Válassz tevékenység-típust." }
         if type.isWholeDay { return nil }
-        if let h = addressHint, !(effectiveWorkplaceList.isEmpty && !addressList.isEmpty) { return h }
         if type.isTravel {
             var missing: [String] = []
             if trimmedDeparture.isEmpty { missing.append("Indulás") }
-            if effectiveWorkplaceList.isEmpty { missing.append("Munkahely(ek)") }
+            if workplaceList.isEmpty { missing.append("Munkahely(ek)") }
             if !roundTrip && trimmedArrival.isEmpty { missing.append("Érkezés") }
             if trimmedActivity.isEmpty { missing.append("Tevékenység") }
-            return missing.isEmpty ? nil : "Kötelező mező: " + missing.joined(separator: ", ") + "."
+            if !missing.isEmpty { return "Kötelező mező: " + missing.joined(separator: ", ") + "." }
+            return placeHint(departure, name: "Indulás") ?? placeHint(arrival, name: "Érkezés")
         }
-        if effectiveWorkplaceList.isEmpty && trimmedWorkplace.isEmpty { return addressHint ?? "A Munkahely mező kötelező." }
+        if trimmedWorkplace.isEmpty { return "A Munkahely mező kötelező." }
         return nil
     }
 
@@ -263,7 +260,6 @@ final class AppModel: ObservableObject {
         departure = ""
         arrival = ""
         quantity = 1
-        useAddress = false
         selectedType = nil
     }
 
@@ -510,22 +506,26 @@ final class AppModel: ObservableObject {
             quantity: type.hasQuantity ? quantity : nil,
             activity: trimmedActivity,
             source: source,
-            departure: type.isTravel ? trimmedDeparture : nil,
-            arrival: type.isTravel ? effectiveArrival : nil,
-            address: entryAddress
+            departure: travelFields?.departure,
+            arrival: travelFields?.arrival,
+            address: travelFields?.stopAddress,
+            departureAddress: travelFields?.departureAddress,
+            arrivalAddress: travelFields?.arrivalAddress
         )
     }
 
-    /// A bejegyzésbe kerülő pontos cím(ek) ` - `-vel elválasztva; nil, ha nincs bejelölve vagy hibás.
-    private var entryAddress: String? {
-        guard useAddress, !type.isWholeDay, addressHint == nil else { return nil }
-        let list = addressList.compactMap { CalendarParser.place($0).address }
-        return list.isEmpty ? nil : list.joined(separator: " - ")
+    /// Az Utazás Indulás, Érkezés és a hozzájuk tartozó pontos címek a bejegyzéshez; nil, ha nem Utazás.
+    private var travelFields: (departure: String, arrival: String, departureAddress: String?, arrivalAddress: String?, stopAddress: String?)? {
+        guard type.isTravel else { return nil }
+        if let p = travelPlan {
+            return (p.departure.settlement, p.arrival.settlement, p.departure.address, p.arrival.address, p.stopAddress)
+        }
+        return (trimmedDeparture, trimmedArrival.isEmpty ? trimmedDeparture : trimmedArrival, nil, nil, nil)
     }
 
     /// A bejegyzésbe kerülő Munkahely: utazásnál a Munkahely(ek) normalizált listája (vesszővel, szóközzel).
     private var entryWorkplace: String {
-        type.isTravel ? effectiveWorkplaceList.joined(separator: ", ") : (trimmedWorkplace.isEmpty ? (effectiveWorkplaceList.first ?? "") : trimmedWorkplace)
+        type.isTravel ? (travelPlan?.workplaces ?? workplaceList).joined(separator: ", ") : trimmedWorkplace
     }
 
     /// Kézi bevitel időpont nélkül: óraszámmal (óra típusoknál), vagy csak mennyiséggel (alkalom, fő).
@@ -542,9 +542,11 @@ final class AppModel: ObservableObject {
             quantity: type.hasQuantity ? quantity : nil,
             activity: trimmedActivity,
             source: "manual",
-            departure: type.isTravel ? trimmedDeparture : nil,
-            arrival: type.isTravel ? effectiveArrival : nil,
-            address: entryAddress
+            departure: travelFields?.departure,
+            arrival: travelFields?.arrival,
+            address: travelFields?.stopAddress,
+            departureAddress: travelFields?.departureAddress,
+            arrivalAddress: travelFields?.arrivalAddress
         )
     }
 

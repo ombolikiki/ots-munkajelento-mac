@@ -637,7 +637,7 @@ do {
     let plain = Entry(id: UUID(), date: "2026-10-01", start: nil, end: nil, durationSeconds: 3600, workplace: "Győr", type: "MEETING", typeLabel: "Értekezlet", unit: "ora", quantity: nil, activity: "", source: "manual")
     let b2 = try? CSV.decode(CSV.encode([plain])).entries
     check("CSV: cím nélküli bejegyzés változatlan", b2?.first?.address == nil && b2?.first?.calendarID == nil)
-    check("CSV: a fejléc a végén kapja az új oszlopokat", CSV.columns.suffix(2) == ["Cím", "Naptár azonosító"] && CSV.columns.count == 17)
+    check("CSV: a fejléc a végén kapja az új oszlopokat", CSV.columns.suffix(4) == ["Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím"] && CSV.columns.count == 19)
     let old = "Azonosító;Dátum;Kezdés;Vége;Időtartam (mp);Időtartam (óó:pp);Indulás;Munkahely;Érkezés;Típus kód;Típus;Egység;Mennyiség;Tevékenység;Forrás\r\n\(UUID().uuidString);2026-10-01;09:00:00;10:00:00;3600;1:00;;Győr;;MEETING;Értekezlet;ora;;x;manual\r\n"
     let r = try? CSV.decode(Data(old.utf8))
     check("CSV: a régi (új oszlopok nélküli) fájl olvasható", r?.entries.count == 1 && r?.entries.first?.address == nil && r?.entries.first?.calendarID == nil && r?.warnings.isEmpty == true)
@@ -983,82 +983,104 @@ do {
     check("geokódoló: az ország hozzáadása", AddressChecker.query("Fő u. 3., Győr") == "Fő u. 3., Győr, Magyarország" && AddressChecker.query("Fő u. 3., Győr, Magyarország") == "Fő u. 3., Győr, Magyarország" && AddressChecker.query("Main St 1, Hungary") == "Main St 1, Hungary")
 }
 
-// MARK: „Teljes címet adok meg” (kézi felvitel)
+// MARK: Utazás: Indulás és Érkezés (település vagy pontos cím), oda-vissza út
 
-section("Teljes címet adok meg")
+section("Utazás: Indulás, Érkezés, oda-vissza")
 do {
+    func pp(_ s: String) -> CalendarParser.ParsedPlace? { CalendarParser.parsePlace(s) }
+    check("hely: egyszerű település", pp("Tata") == CalendarParser.ParsedPlace(settlement: "Tata", address: nil))
+    check("hely: település és cím (település elöl)", pp("Tata, Fő út 1.") == CalendarParser.ParsedPlace(settlement: "Tata", address: "Fő út 1., Tata"))
+    check("hely: több vesszős utcarész", pp("Tata, Fő út 1., I. emelet") == CalendarParser.ParsedPlace(settlement: "Tata", address: "Fő út 1., I. emelet, Tata"))
+    check("hely: fordított sorrend is érthető", pp("Fő út 1., Tata") == CalendarParser.ParsedPlace(settlement: "Tata", address: "Fő út 1., Tata"))
+    check("hely: irányítószám és ország", pp("9021 Győr, Fő u. 3.")?.settlement == "Győr" && pp("Fő u. 3., 9021 Győr, Magyarország")?.settlement == "Győr")
+    check("hely: házszám nélküli utca", pp("Tata, Fő út") == CalendarParser.ParsedPlace(settlement: "Tata", address: "Fő út, Tata"))
+    check("hely: kötőjeles név", pp("Győr-Moson")?.settlement == "Győr-Moson")
+    check("hely: üres és hibás", pp("") == nil && pp("  ,  ") == nil && pp("12") == nil && pp("Fő utca 3") == nil)
+
     let ud2 = UserDefaults.standard
     let adir = tmp + "/addr"
     try? FileManager.default.removeItem(atPath: adir)
     ud2.set(adir + "/bejegyzesek.csv", forKey: "dataFile")
     ud2.set("Győr", forKey: "home")
+    ud2.removeObject(forKey: "travel.roundTrip")
     let am = AppModel()
-    am.selectedType = .meeting
-    check("cím: alapból nincs bejelölve, nincs cím a bejegyzésben", !am.useAddress && am.addressList.isEmpty)
-    am.workplace = "Győr"; am.activity = "x"
-    let plain = am.makeManualEntry(day: Date(), durationSeconds: 3600)
-    check("cím nélkül a bejegyzés változatlan", plain.address == nil && plain.workplace == "Győr" && am.fieldsComplete)
-    am.useAddress = true
-    check("cím: bejelölve, üres címmel nem rögzíthető", !am.fieldsComplete && (am.missingFieldsHint ?? "").contains("pontos címet"), "\(String(describing: am.missingFieldsHint))")
-    am.address = "Fő utca 3., Győr"
-    check("cím: érvényes cím rögzíthető", am.fieldsComplete)
-    let e1 = am.makeManualEntry(day: Date(), durationSeconds: 3600)
-    check("cím: a Cím oszlopba kerül, a munkahely település", e1.address == "Fő utca 3., Győr" && e1.workplace == "Győr")
-    am.address = "Fő utca 3 Győr"
-    check("cím: vessző nélküli cím hibás", !am.fieldsComplete && (am.missingFieldsHint ?? "").contains("vesszővel"))
-    am.address = "Fő utca 3., Mór"
-    check("cím: a munkahellyel nem egyező település hibás", !am.fieldsComplete && (am.missingFieldsHint ?? "").contains("nem egyezik"))
-    am.workplace = ""
-    check("cím: üres munkahelynél a településből származik", am.fieldsComplete && am.makeManualEntry(day: Date(), durationSeconds: 3600).workplace == "Mór")
-    am.address = "A u. 1., Győr - B u. 2., Győr"
-    check("cím: nem utazásnál csak egy cím adható", !am.fieldsComplete && (am.missingFieldsHint ?? "").contains("Egy bejegyzéshez"))
-    am.address = "Fő utca 3., 9021 Győr, Magyarország"
-    check("cím: irányítószámmal és országgal is jó", am.fieldsComplete && am.makeManualEntry(day: Date(), durationSeconds: 3600).workplace == "Győr")
-    am.useAddress = false
-    check("cím: a pipa kivétele törli a címet", am.address.isEmpty && am.makeManualEntry(day: Date(), durationSeconds: 3600).address == nil)
-    // utazás
-    am.clearDraft()
+    am.clearDraft(); am.roundTrip = false
     am.selectedType = .travel
-    am.useAddress = true
-    am.activity = "Kiszállás"; am.workplace = "Tata, Mór"; am.address = "Fő u. 3., Tata - Mór u. 5., Mór"
-    check("cím: utazásnál több cím", am.fieldsComplete)
-    let t1 = am.makeManualEntry(day: Date(), durationSeconds: 1800)
-    check("cím: utazás bejegyzés címei és települései", t1.address == "Fő u. 3., Tata - Mór u. 5., Mór" && t1.workplace == "Tata, Mór")
-    am.address = "Fő u. 3., Tata - X u. 5., Pécs"
-    check("cím: utazásnál a Munkahelyek között nem szereplő település hibás", !am.fieldsComplete)
-    am.workplace = ""
-    am.address = "Fő u. 3., Tata - Mór u. 5., Mór"
-    check("cím: utazásnál üres munkahelynél a címekből", am.fieldsComplete && am.makeManualEntry(day: Date(), durationSeconds: 1800).workplace == "Tata, Mór")
-    am.clearDraft()
-    check("cím: clearDraft kikapcsolja és törli", !am.useAddress && am.address.isEmpty)
-    // egész napos típusnál nincs cím
-    am.selectedType = .holiday
-    am.useAddress = true; am.address = "x"
-    check("cím: egész napos típusnál figyelmen kívül marad", am.fieldsComplete && am.makeWholeDayEntry(day: Date()).address == nil)
-    am.clearDraft()
-    // rögzítés után a fájlba kerül és visszaolvasható
-    am.selectedType = .meeting; am.workplace = "Győr"; am.activity = "x"; am.useAddress = true; am.address = "Fő utca 3., Győr"
-    am.add(am.makeManualEntry(day: DateUtil.addDays(Date(), -1), durationSeconds: 3600))
+    check("utazás: az Indulás és az Érkezés alapja a székhely", am.departure == "Győr" && am.arrival == "Győr")
+    am.workplace = "Tata"; am.activity = "Kiszállás"
+    let st = Date().addingTimeInterval(-3600)
+    // 1. Pipa nélkül: Indulás -> Érkezés
+    am.departure = "Győr"; am.arrival = "Mór"
+    var e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    check("pipa nélkül: Indulás - Munkahely - Érkezés", am.fieldsComplete && OTSManual.routePoints(e, home: "X") == ["Győr", "Tata", "Mór"] && e.arrival == "Mór", "\(OTSManual.routePoints(e, home: "X"))")
+    // 2. Pontos cím csak az egyik oldalon
+    am.departure = "Győr, Fő út 1."; am.arrival = "Mór"
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    check("csak az Indulásnak van pontos címe", am.fieldsComplete && e.departure == "Győr" && e.departureAddress == "Fő út 1., Győr" && e.arrival == "Mór" && e.arrivalAddress == nil)
+    am.departure = "Győr"; am.arrival = "Mór, Kossuth u. 5."
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    check("csak az Érkezésnek van pontos címe", e.arrival == "Mór" && e.arrivalAddress == "Kossuth u. 5., Mór" && e.departureAddress == nil)
+    am.departure = "Győr, Fő út 1."; am.arrival = "Mór, Kossuth u. 5."
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    let rd = OTSManual.routeDetail(e, home: "Győr")
+    check("mindkettőnek van pontos címe, az OTS útvonal települések", OTSManual.routePoints(e, home: "Győr") == ["Győr", "Tata", "Mór"] && rd.map { $0.address } == ["Fő út 1., Győr", nil, "Kossuth u. 5., Mór"], "\(rd)")
+    am.arrival = "Mór, Kossuth u. 5"
+    check("hibás forma nem rögzíthető", { am.arrival = "5"; return !am.fieldsComplete && (am.missingFieldsHint ?? "").contains("Érkezés") }())
+    am.arrival = "Mór"
+    // 3. Pipával: Indulás -> Érkezés -> Indulás
+    am.roundTrip = true
+    am.departure = "Győr"; am.arrival = "Mór"
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    check("pipával: az Érkezés mezőt nem szürkíti, az útvonal Indulás - Munkahely - Érkezés - Indulás", OTSManual.routePoints(e, home: "X") == ["Győr", "Tata", "Mór", "Győr"] && e.departure == "Győr" && e.arrival == "Győr" && e.workplace == "Tata, Mór", "\(OTSManual.routePoints(e, home: "X")) \(e.workplace)")
+    am.arrival = "Győr"
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    check("pipával az Indulással egyező Érkezés (cím nélkül) nem kerül kétszer az útvonalba", OTSManual.routePoints(e, home: "X") == ["Győr", "Tata", "Győr"] && e.workplace == "Tata")
+    am.arrival = ""
+    check("pipával az Érkezés nem kötelező (A - B - A, mint eddig)", am.fieldsComplete && OTSManual.routePoints(am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual"), home: "X") == ["Győr", "Tata", "Győr"])
+    am.arrival = "Mór, Kossuth u. 5."
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    let rd2 = OTSManual.routeDetail(e, home: "Győr")
+    check("pipával a pontos címes Érkezés megőrzi a címet", e.address == "Kossuth u. 5., Mór" && e.workplace == "Tata, Mór" && rd2.map { $0.name } == ["Győr", "Tata", "Mór", "Győr"] && rd2[2].address == "Kossuth u. 5., Mór" && rd2[3].address == nil, "\(rd2)")
+    am.departure = "Győr, Fő út 1."; am.arrival = "Mór"
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    let rd3 = OTSManual.routeDetail(e, home: "Győr")
+    check("pipával a visszaút az Indulás pontos címére megy", rd3.first?.address == "Fő út 1., Győr" && rd3.last?.address == "Fő út 1., Győr" && rd3.count == 4, "\(rd3)")
+    check("pipával a székhely az alapértelmezett Érkezés mellett sem duplázódik", { am.departure = "Győr"; am.arrival = "Győr"; am.workplace = "Tata"; return am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual").workplace == "Tata" }())
+    check("a pipa állapota megmarad", UserDefaults.standard.bool(forKey: "travel.roundTrip"))
+    // munkahely(ek) változatlan (vesszős lista)
+    am.workplace = "Tata, Mór"; am.arrival = ""; am.roundTrip = false; am.arrival = "Győr"
+    e = am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual")
+    check("a Munkahely(ek) vesszős lista változatlan", e.workplace == "Tata, Mór" && OTSManual.routePoints(e, home: "X") == ["Győr", "Tata", "Mór", "Győr"])
+    // nem utazásnál nincs cím
+    am.clearDraft(); am.selectedType = .meeting; am.workplace = "Győr"
+    let plain = am.makeManualEntry(day: Date(), durationSeconds: 3600)
+    check("nem utazásnál nincs Indulás/Érkezés cím", plain.departure == nil && plain.departureAddress == nil && plain.arrivalAddress == nil && plain.address == nil)
+    // mentés és újraolvasás
+    am.clearDraft(); am.roundTrip = false
+    am.selectedType = .travel; am.workplace = "Tata"; am.activity = "Kiszállás"; am.departure = "Győr, Fő út 1."; am.arrival = "Mór, Kossuth u. 5."
+    am.add(am.makeManualEntry(day: DateUtil.addDays(Date(), -1), durationSeconds: 1800))
     let am2 = AppModel()
-    check("cím: mentés és újraolvasás után megvan", am2.entries.contains { $0.address == "Fő utca 3., Győr" && $0.workplace == "Győr" })
+    check("Indulás és Érkezés cím: mentés és újraolvasás után megvan", am2.entries.contains { $0.departureAddress == "Fő út 1., Győr" && $0.arrivalAddress == "Kossuth u. 5., Mór" && $0.departure == "Győr" && $0.arrival == "Mór" })
+    check("CSV: új oszlopok a végén", CSV.columns.suffix(2) == ["Indulás cím", "Érkezés cím"] && CSV.columns.count == 19)
     am.clearDraft()
+    ud2.removeObject(forKey: "travel.roundTrip")
     ud2.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
     ud2.set("Székesfehérvár", forKey: "home")
 }
 
 do {
-    // az űrlap kinézete a „Teljes címet adok meg” jelölővel (képpé renderelve, ha az OTS_RENDER_DIR meg van adva)
+    // az űrlap kinézete (képpé renderelve, ha az OTS_RENDER_DIR meg van adva)
     let ud3 = UserDefaults.standard
     ud3.set(tmp + "/addr2/bejegyzesek.csv", forKey: "dataFile")
     let fm3 = AppModel()
     fm3.selectedType = .travel; fm3.workplace = "Tata, Mór"; fm3.activity = "Kiszállás"
-    fm3.useAddress = true; fm3.address = "Fő u. 3., Tata - Mór u. 5., Mór"
+    fm3.departure = "Győr, Fő út 1."; fm3.arrival = "Mór"; fm3.roundTrip = true
     if let dir = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"] {
         let h = NSHostingController(rootView: FieldsView().environmentObject(fm3).environment(\.palette, .blue).frame(width: 440).padding(14))
         h.sizingOptions = []
         let w = NSWindow(contentViewController: h)
         w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .white
-        w.setContentSize(NSSize(width: 470, height: 330))
+        w.setContentSize(NSSize(width: 470, height: 300))
         w.makeKeyAndOrderFront(nil)
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         if let cv = w.contentView, let rep = cv.bitmapImageRepForCachingDisplay(in: cv.bounds) {
@@ -1068,6 +1090,8 @@ do {
         }
         w.orderOut(nil)
     }
+    fm3.roundTrip = false
+    ud3.removeObject(forKey: "travel.roundTrip")
     ud3.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
 }
 

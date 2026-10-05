@@ -197,6 +197,9 @@ struct Entry: Codable, Identifiable, Equatable {
     var address: String? = nil
     /// A naptáresemény azonosítója (+ `#` és a nap), ha a bejegyzés a naptárból jött.
     var calendarID: String? = nil
+    /// Utazásnál: az Indulás és az Érkezés pontos címe, ha meg van adva (a `departure` és az `arrival` település marad).
+    var departureAddress: String? = nil
+    var arrivalAddress: String? = nil
 
     var activityType: ActivityType? { ActivityType.lookup(code: type) }
 

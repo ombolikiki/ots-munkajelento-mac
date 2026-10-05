@@ -105,7 +105,7 @@ enum OTSManual {
     }
 
     /// Az útvonal pontjai pontos címekkel: a Munkahely(ek) pontjaihoz a bejegyzés `Cím` mezőjének azonos településű címei
-    /// kerülnek (sorrendben, egy cím egyszer); az Indulás és az Érkezés mindig település. Csak az azonos nevű, cím nélküli szomszédos pontok vonódnak össze.
+    /// kerülnek (sorrendben, egy cím egyszer); az Indulás és az Érkezés pontját a bejegyzés saját `Indulás cím` és `Érkezés cím` mezője adja (ha van). Csak az azonos nevű, cím nélküli szomszédos pontok vonódnak össze.
     static func routeDetail(_ e: Entry, home: String) -> [RoutePoint] {
         let dep = (e.departure ?? "").trimmingCharacters(in: .whitespaces)
         let arr = (e.arrival ?? "").trimmingCharacters(in: .whitespaces)
@@ -117,7 +117,7 @@ enum OTSManual {
             if let last = points.last, last.address == nil, p.address == nil, last.name.caseInsensitiveCompare(p.name) == .orderedSame { return }
             points.append(p)
         }
-        add(RoutePoint(name: dep.isEmpty ? home : dep, address: nil))
+        add(RoutePoint(name: dep.isEmpty ? home : dep, address: dep.isEmpty ? nil : e.departureAddress))
         for m in mids where !m.isEmpty {
             var found: String?
             if let i = pool.firstIndex(where: { (CalendarParser.place($0).settlement.map { CalendarParser.fold($0) } ?? "") == CalendarParser.fold(m) }) {
@@ -125,7 +125,7 @@ enum OTSManual {
             }
             add(RoutePoint(name: m, address: found))
         }
-        add(RoutePoint(name: arr.isEmpty ? home : arr, address: nil))
+        add(RoutePoint(name: arr.isEmpty ? home : arr, address: arr.isEmpty ? nil : e.arrivalAddress))
         return points
     }
 

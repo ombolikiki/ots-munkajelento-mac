@@ -22,7 +22,7 @@ Menüsori Mac-alkalmazás (SwiftUI, Swift Package, Xcode nélkül). Magyarul kom
 ## Üzleti szabályok (ne változtasd kérés nélkül)
 
 - A Tevékenység csak az Utazásnál kötelező, máshol opcionális. A Költségelszámolás Tevékenysége kizárólag az Utazás bejegyzésekből jön (az app kézi felvitel ablakában és a skillben is).
-- Oda-vissza út: az Érkezés az Indulás (A - B - A).
+- Oda-vissza út (1.4.0-tól): pipa nélkül `Indulás - Munkahely(ek) - Érkezés`, bejelölve az útvonal végére az Indulás is kerül (`… - Érkezés - Indulás`). A CSV-ben a bejegyzés ilyenkor `Érkezés` = `Indulás`, a beírt Érkezés pedig utolsó Munkahelyként szerepel (így a skill és a webapp változtatás nélkül A - B - A útvonalat kap); üres vagy az Indulással egyező (cím nélküli) Érkezésnél az útvonal `Indulás - Munkahely(ek) - Indulás`. Az Indulás és az Érkezés település vagy `Település, utca házszám`; a pontos cím az `Indulás cím` / `Érkezés cím` CSV-oszlopba kerül, az OTS-be a település megy.
 - A leválasztott ablak szélességben és magasságban átméretezhető (a tartalom követi); a menüsori ablak mérete rögzített/természetes magasságú.
 
 ## Ingyenes MI-megoldás
