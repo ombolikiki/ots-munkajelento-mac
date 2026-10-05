@@ -1,0 +1,10 @@
+.build*/
+dist/
+.DS_Store
+.claude/
+# a build által generált útmutatók (a forrás a docs/HASZNALATI_UTMUTATO.md és a docs/ANTIGRAVITY_CLI_UTMUTATO.md)
+docs/*.html
+docs/*.pdf
+docs/kepek-uj/
+# a webapp saját, külön tárolóban él: github.com/ombolikiki/ots-munkajelento
+web/

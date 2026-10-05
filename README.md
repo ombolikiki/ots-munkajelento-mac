@@ -1,0 +1,85 @@
+# OTS Munkajelentő Tracker (1.4.0)
+
+Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
+
+- **Időzítő**, **Kézi bevitel** (időponttal vagy óraszámmal), **Pomodoro** (alapértelmezett 25/5/15 perc, minden 4. pomo után hosszú szünet, a Pomodoro lapon módosítható; a félbehagyott pomo eltelt ideje is mentődik) és **Naptár** (heti nézet, húzással új bejegyzés).
+- Az ablak alján a kiválasztott nap összes bejegyzése és a kitöltetlen napok (alapból e hónap elejétől, a vasárnapokat is beleértve) látszanak.
+- Mezők: Munkahely, Tevékenység típusa (az OTS Havi munkajelentő oszlopai), Tevékenység.
+- Látogatásnál a mennyiség **fő**, Istentiszteletnél, Evangelizációnál és Bibliaóránál **alkalom**.
+- Szabadság, Szabadnap és Munkaszüneti nap a Kézi beviteleknél választható.
+
+## Adatok
+
+`~/Library/Application Support/OTS Munkajelentő Tracker/bejegyzesek.csv`
+
+Pontosvesszővel tagolt UTF-8 CSV, Excelben, Numbersben és LibreOffice-ban is megnyitható. Szerkesztés után az app a következő megnyitáskor újra beolvassa. Ha a fájl hibás sorokat tartalmaz, mentés előtt biztonsági másolat készül róla (`bejegyzesek.hibas-….csv`). A régi `bejegyzesek.json` fájlt az app első indításkor átalakítja. A mappa az appban módosítható, a `beallitasok.json` (a fix `Application Support` mappában) mindig megmondja, hol van az aktuális adatfájl.
+
+## Fejlesztés és csomagolás
+
+```bash
+swift build && .build/debug/OTSMunkajelentoTracker   # futtatás fejlesztés közben
+./scripts/build.sh                                    # dist/ mappa: terjeszthető .zip (arm64 + Intel)
+```
+
+Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást használ. Apple Developer ID-val: `SIGN_ID="Developer ID Application: Név (TEAMID)" ./scripts/build.sh`.
+
+## Útmutató a kollégáknak
+
+1. Bontsd ki a zip-et, és húzd az **OTS Munkajelentő Tracker** alkalmazást az Alkalmazások mappába.
+2. Az első indításnál a macOS figyelmeztethet, hogy az app nem ellenőrizhető. Ilyenkor: **Rendszerbeállítások › Adatvédelem és biztonság**, görgess le, és kattints a **„Mégis megnyitom”** gombra. Ez csak egyszer kell.
+3. Az app a menüsorban jelenik meg (óra ikon). Kattints rá a megnyitáshoz. A fogaskerék ikonnál állíthatod be a Pomodoro időket és az indítást bejelentkezéskor.
+
+## Újdonságok az 1.1.0-ban
+
+- Jövőbeli napra (és a mai nap jövőbeli idejére) nem lehet bejegyzést felvenni, sem kézzel, sem a naptárban.
+- A napi lista mellett „Ma” gomb ugrik a mai napra.
+- Rögzítés (vagy leállítás) után az űrlap kiürül.
+- A helyszínek listája automatikusan épül, és a Beállításokban szerkeszthető. A tevékenység-kategóriákhoz saját kategória adható (az `EGYEDI_` kódú bejegyzéseket a skill nem viszi át az OTS-be), a beépített OTS-kategóriák elrejthetők.
+- Leválasztható, mozgatható, kitűzhető ablak (a fejléc ikonja), és kompakt nézet.
+- Menüikon: Pomo közben paradicsom, szünetben csésze (mindhárom ikon cserélhető), a lejárt pomo és szünet hangja választható.
+
+**1.1.1:** ha van leválasztott ablak, a menüikonra kattintás azt hozza előre (a lenyíló ablak nem nyílik meg mellette).
+
+**1.1.2:** összeomlás-javítás (az ablak magassága a képernyőnél nem nőhet nagyobbra, a tartalom görgethető; a leválasztott ablak rögzített méretű, kézzel átméretezhető), a lapfülek teljes területe kattintható, a hibás számok a CSV-ben nem okozhatnak leállást, és a Beállításokban megerősítéssel az összes adat törölhető (alapállapot).
+
+**1.1.3:** a menüsori ablak újra a tartalom magasságát veszi fel (az 1.1.2-ben vékony csíkká zsugorodott). A hosszú napi lista és a Beállítások saját, rögzített magasságú görgethető területet kapott, így az ablak a képernyőnél nem nőhet magasabbra. Alacsony képernyőn (880 pontnál kisebb látható magasság) az ablak automatikusan kompakt.
+
+**1.1.4:** a menüsori ikonra jobb kattintásra (vagy Ctrl+kattintásra) menü jelenik meg: ablak megnyitása, a futó időzítő vagy pomo leállítása/elvetése, leválasztott ablak, kompakt nézet, menüsori ikon választása, adatfájl megjelenítése, Kilépés.
+
+**1.1.5:** a napi összesítőben 1 fő és 1 alkalom is 1 órának számít („Összesen: …”). A Pomodoro hátralévő ideje a menüsorban a Beállításokban kapcsolható. A skill a pomókat napi és típusonkénti összegben kerekíti fel, nem külön-külön.
+
+**1.2.0:**
+- **Claude Skill telepítése** (Beállítások): a csomag tartalmazza a skillt, és egy négylépéses varázsló telepíti a `~/.claude/skills` mappába (név, székhely és gyülekezetek megadásával; meglévő skill felülírása előtt másolat készül). A csomagolt skill a személyes skillből készül a `scripts/make-skill-template.py` szkripttel a build során; személyes adat nem kerül bele, a létszámjelentő feladat pedig mindig a felhasználótól kér valós számokat.
+- **Használati útmutató**: `docs/HASZNALATI_UTMUTATO.md` (forrás), a build ebből készít önálló HTML-t (az app Beállításaiból megnyitható) és PDF-et (`dist/`).
+- A skill (Havi munkajelentő, Költségelszámolás) már nem külső időmérő szolgáltatásból, hanem kizárólag ennek az alkalmazásnak az adatfájljából dolgozik.
+
+**1.4.0:**
+- **Naptárintegráció** (Mac Naptár, EventKit, egy irányú: naptár → app; csak olvas): a lezajlott események bejegyzésként átvétele (`CalendarParser.swift`, `CalendarStore.swift`, `CalendarSync.swift`, felület: `CalendarSyncView.swift`). A jelölési szabály: `docs/NAPTAR_JELOLESEK.md` (közös a webappal). A naptár a mérvadó (módosítás frissít, törlés töröl; kézi bejegyzéshez nem nyúl; másolat és törlésvédelem). „Átnézésre vár” ablak a hiányos és nem felismert eseményeknek.
+- **Pontos címek:** új CSV-oszlopok a végén: `Cím`, `Naptár azonosító` (régi fájlok olvashatók maradnak). „Teljes címet adok meg” jelölőnégyzet a kézi felvitelben. A Google Maps útvonalba a pontos cím kerül, Apple geokódolós ellenőrzéssel (`AddressChecker.swift`), tartaléknak a település.
+- **macOS 14+** (a Naptár teljes hozzáféréséhez); az aláíráshoz a `scripts/OTS.entitlements` tartozik (`com.apple.security.personal-information.calendars`).
+- Tesztek: a SelfTest „Naptár…” szakaszai (értelmező 2024–2035 minden negyedévre, szinkron kitalált naptárral).
+
+**1.3.3:**
+- **Antigravity CLI (`agy`) a Gemini CLI helyett**, „Ingyenes” jelzéssel a skill-telepítőben. A Google 2026. június 18-tól leállította a Gemini CLI-t magánszemélyeknek. Az `agy` a skillt az `~/.agents/skills` mappából tölti be (a Codex közös mappája); a telepítő jelzi, hogy az `agy` telepítve van-e, a régi Gemini-másolatot eltávolítja (másolattal). Új, részletes Antigravity CLI útmutató (külön PDF és beépítve). **Kipróbálva és ingyenes: az Antigravity CLI és a ChatGPT Codex is** (látja és olvassa az OTS-t, és kattint rajta); a telepítő mindkettőnél „Ingyenes” jelzést mutat.
+
+**1.3.2:**
+- **Egységes skill:** egyetlen közös „OTS Adminisztráció” skill van (`skill-template/ots-adminisztracio`), amelyet mindenki (a fejlesztő is) az alkalmazás telepítőjével telepít; a korábbi külön személyes skillt megszüntettük.
+- A skill új neve **OTS Adminisztráció** (`ots-adminisztracio`); a telepítő lecseréli az alkalmazás által telepített régi `detkapu-adminisztracio` skillt (másolattal).
+- A telepítő megkérdezi, hogy **DETKapu** (ots.detkapu.hu) vagy **TETKapu** (ots.tetkapu.hu) oldalon dolgozol, és a skillbe a megfelelő címet írja.
+- **Gemini CLI**: „Ingyenes megoldás” jelzés a telepítőben, a Gemini böngészőágensének automatikus bekapcsolása (`~/.gemini/settings.json`), beépített Gemini CLI útmutató.
+- **Oda-vissza út** az Utazásnál (az Érkezés az Indulás); a Költségelszámolás tevékenysége kizárólag az Utazás bejegyzésekből jön; a Tevékenység csak az Utazásnál kötelező.
+- Naptár: a napok neve és száma az oszlopuk fölé igazítva; átméretezhető leválasztott ablak (szélesség és magasság); a napi lista színes pontjainak elhelyezése javítva.
+- A kategóriák színe újra állítható: a rendszer színpanelje a menüsori ablakból nem nyílt meg, helyette beépített színválasztó (16 színminta és `#RRGGBB` mező).
+
+**1.3.1:**
+- **Kézi felvitel az OTS-be** (fejléc ikon, Beállítások › Skill): külön ablak a Munkajelentő, a Költségelszámolás és a Létszámjelentő adataival, naptárban, felsorolásban és az OTS táblázatának megfelelő oszlopokban; kattintásra vágólapra másol, „felvittem” jelölés, Google Maps hivatkozás az útvonalakhoz, opcionálisan a skill szabályai szerint (8-ra kiegészítés, `!!!`).
+- **Kategóriák színei** (Beállítások): a naptárban, a napi listában és a kézi felviteli ablakban jelennek meg.
+
+**1.3.0:**
+- **Skill-telepítő:** több célra (Claude, ChatGPT/Codex, Gemini CLI), kiválasztható feladatokkal; csak a kijelölt feladatokhoz kér adatot (név, székhely, gyülekezetek).
+- **Utazás:** Indulás – Munkahely(ek) – Érkezés mezők; a Költségelszámolás ezekből számol Google Maps útvonalat.
+- **Gyülekezeti létszámjelentő:** negyedévenként a második és hetedik szombaton; külön `letszamjelentesek.csv`; a skill innen olvassa a számokat.
+- **Naptár:** beállítható munkanap-sáv (a sávon kívüli bejegyzések jelzése) és a hét kezdőnapja.
+- **Jelzések:** napi 8 óra (piros pont), hiányos és kitöltetlen napok, hosszú kihagyás utáni emlékeztető ikon és sáv.
+- **Megjelenés:** alapból az Adventista jelkép a menüsorban; négy színséma; világos, sötét és rendszer mód.
+- **Stabilitás:** védett dátumszámítás egységtesztekkel (2024–2035, több időzónában), önellenőrző tesztek a build része.
