@@ -29,26 +29,39 @@ enum MenuImages {
     }()
 }
 
-/// A menüsori számláló: állandó szélességű, így másodpercenként sem ugrál, és nem tolja az ikont.
-/// A menüsori elem nem mindig veszi át a SwiftUI `monospacedDigit()` módosítóját, ezért a betűtípus eleve szélességazonos számjegyű
-/// (`monospacedDigitSystemFont`), a keret pedig a szöveg számjegyeinek mért szélességére rögzített (az óó:pp:mm alak csak egy óra után lesz szélesebb).
-struct MenuClockText: View {
-    let text: String
-    static let nsFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+/// A menüsori számláló képként kirajzolva. A menüsori elem a SwiftUI szövegét a saját betűtípusával (arányos számjegyekkel) rajzolja újra,
+/// ezért a számok másodpercenként ugráltak. Itt a szöveget mi rajzoljuk ki egy sablonképre (a rendszer a menüsor színére festi),
+/// szélességazonos számjegyű betűtípussal és rögzített szélességgel: minden számjegy ugyanazon a helyen áll, és a kép mérete sosem változik
+/// az azonos hosszú időnél (az óó:pp:mm alak egy óra után lesz egyszer szélesebb).
+enum MenuClockImage {
+    static let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+    static let height: CGFloat = 17
 
     /// A szöveg szélessége úgy mérve, hogy minden számjegy 0 (a számjegyek szélessége egyforma, így az érték nem számít).
     static func width(for text: String) -> CGFloat {
         let pattern = String(text.map { $0.isNumber ? Character("0") : $0 })
-        return ceil((pattern as NSString).size(withAttributes: [.font: nsFont]).width) + 1
+        return ceil((pattern as NSString).size(withAttributes: [.font: font]).width) + 1
     }
 
+    static func make(_ text: String) -> NSImage {
+        let size = NSSize(width: width(for: text), height: height)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
+        let image = NSImage(size: size, flipped: false) { rect in
+            let str = text as NSString
+            let h = str.size(withAttributes: attrs).height
+            str.draw(at: NSPoint(x: 0, y: (rect.height - h) / 2), withAttributes: attrs)
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+}
+
+struct MenuClockText: View {
+    let text: String
     var body: some View {
-        Text(text)
-            .font(Font(Self.nsFont as CTFont))
-            .monospacedDigit()
-            .lineLimit(1)
-            .fixedSize()
-            .frame(width: Self.width(for: text), alignment: .leading)
+        Image(nsImage: MenuClockImage.make(text))
+            .accessibilityLabel(text)
     }
 }
 
