@@ -390,6 +390,25 @@ if ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"] != nil, ProcessInfo.p
     print("(kihagyva: az OTS_SKILL_SOURCE és az OTS_HOME nincs beállítva)")
 }
 
+// MARK: Menüsori számláló: állandó szélesség
+
+section("Menüsori számláló")
+do {
+    let samples = ["00:00", "01:11", "08:08", "11:11", "12:34", "25:00", "47:58", "58:59", "59:59", "99:99"]
+    let widths = Set(samples.map { MenuClockText.width(for: $0) })
+    check("az óó:pp alakok szélessége minden számjegyre azonos", widths.count == 1, "\(widths)")
+    let longSamples = ["1:00:00", "1:11:11", "2:08:08", "9:59:59", "10:00:00"]
+    check("a h:mm:ss alakok szélessége (azonos hosszra) azonos", Set(longSamples.dropLast().map { MenuClockText.width(for: $0) }).count == 1)
+    check("a hosszabb alak szélesebb (egyszer vált, egy óra után)", MenuClockText.width(for: "1:00:00") > MenuClockText.width(for: "59:59"))
+    // kirajzolva: a tényleges szélesség sem függ a számjegyektől
+    func fitted(_ t: String) -> CGFloat {
+        let h = NSHostingController(rootView: MenuClockText(text: t))
+        return h.view.fittingSize.width
+    }
+    let fits = Set(["00:00", "11:11", "08:08", "59:59", "47:25"].map { fitted($0) })
+    check("a kirajzolt számláló szélessége minden számjegyre azonos", fits.count == 1, "\(fits)")
+}
+
 // MARK: Skill: elavult telepítés jelzése és egykattintásos frissítés
 
 section("Skill: frissítés")

@@ -473,6 +473,9 @@ Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy tele
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
 
+### 1.5.1
+- **A menüsori számláló nem ugrál:** az időzítő és a Pomodoro ideje állandó szélességű, szélességazonos számjegyekkel jelenik meg, így másodpercenként sem mozog a menüsori ikon.
+
 ### 1.5.0
 - **Skill-frissítés egy kattintással.** Ha az alkalmazásban újabb a skill, mint a gépeden telepített, az alkalmazás jelzi (fejléc-ikon, értesítés, Beállítások › Skill), és egy kattintással frissíti a korábbi telepítés beállításaival (másolat a régiről).
 - **Időzítő: korábbi kezdés.** Indítás előtt megadható a Kezdés ideje (óó:pp, vagy −5/−10/−15/−30 perc gombok), futás közben is javítható; az idő onnantól számolódik (legfeljebb a nap elejéig, jövőbeli nem lehet).

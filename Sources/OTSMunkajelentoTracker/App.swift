@@ -29,6 +29,29 @@ enum MenuImages {
     }()
 }
 
+/// A menüsori számláló: állandó szélességű, így másodpercenként sem ugrál, és nem tolja az ikont.
+/// A menüsori elem nem mindig veszi át a SwiftUI `monospacedDigit()` módosítóját, ezért a betűtípus eleve szélességazonos számjegyű
+/// (`monospacedDigitSystemFont`), a keret pedig a szöveg számjegyeinek mért szélességére rögzített (az óó:pp:mm alak csak egy óra után lesz szélesebb).
+struct MenuClockText: View {
+    let text: String
+    static let nsFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
+
+    /// A szöveg szélessége úgy mérve, hogy minden számjegy 0 (a számjegyek szélessége egyforma, így az érték nem számít).
+    static func width(for text: String) -> CGFloat {
+        let pattern = String(text.map { $0.isNumber ? Character("0") : $0 })
+        return ceil((pattern as NSString).size(withAttributes: [.font: nsFont]).width) + 1
+    }
+
+    var body: some View {
+        Text(text)
+            .font(Font(Self.nsFont as CTFont))
+            .monospacedDigit()
+            .lineLimit(1)
+            .fixedSize()
+            .frame(width: Self.width(for: text), alignment: .leading)
+    }
+}
+
 struct MenuLabel: View {
     @EnvironmentObject var m: AppModel
     @AppStorage("menuIcon") private var mainIcon = "adventist"
@@ -41,7 +64,7 @@ struct MenuLabel: View {
         HStack(spacing: 4) {
             IconView(choice: choice)
             if let text = text {
-                Text(text).monospacedDigit()
+                MenuClockText(text: text)
             }
         }
     }
