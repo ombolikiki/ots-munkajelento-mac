@@ -521,6 +521,23 @@ struct SettingsView: View {
                 }
                 Text(skillStatus).font(.caption).foregroundStyle(.secondary)
             }
+            if m.skillUpdateAvailable {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(Theme.warn)
+                    Text("Az alkalmazásban újabb skill van, mint a gépeden.").font(.caption)
+                    Spacer(minLength: 4)
+                    Button("Skill frissítése") { m.updateSkill() }
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.warn.opacity(0.12)))
+                Text("A frissítés a korábbi telepítés beállításait használja (célok, feladatok, név, székhely), és a régi skillről másolatot készít. Utána indítsd újra az asszisztens alkalmazását.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let msg = m.skillUpdateMessage {
+                Text(msg).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }.card()
     }
 

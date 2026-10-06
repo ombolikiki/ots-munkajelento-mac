@@ -433,6 +433,62 @@ final class SkillInstaller: ObservableObject {
         }
     }
 
+    // MARK: Egykattintásos frissítés
+
+    struct UpdateOutcome: Equatable {
+        var updated: [SkillTarget] = []
+        var problems: [String] = []
+        var didUpdate: Bool { !updated.isEmpty }
+        var message: String {
+            if updated.isEmpty && problems.isEmpty { return "A skill naprakész." }
+            var parts: [String] = []
+            if !updated.isEmpty { parts.append("Frissítve: " + updated.map { $0.title }.joined(separator: ", ") + ". Indítsd újra az asszisztens alkalmazását, hogy az új skillt töltse be.") }
+            parts += problems
+            return parts.joined(separator: " ")
+        }
+    }
+
+    /// Az alkalmazás által telepített, de elavult skill frissítése **a korábbi telepítés beállításaival** (célok, feladatok, név,
+    /// székhely, gyülekezetek, DETKapu/TETKapu), amelyek a skill jelölőfájljában vannak. Frissítés előtt a meglévő telepítésről másolat készül
+    /// (mint a telepítőnél). A kézzel telepített skillt (jelölés nélkül) nem bántja. Ha a jelölés hiányos, a telepítőt kell használni.
+    @discardableResult
+    func updateOutdated() -> UpdateOutcome {
+        var outcome = UpdateOutcome()
+        refresh()
+        let keys = ["skill.userName", "skill.home", "skill.congregations", "skill.tasks", "skill.targets", "skill.site"]
+        let saved = Dictionary(uniqueKeysWithValues: keys.map { ($0, ud.object(forKey: $0)) })
+        defer { for (k, v) in saved { if let v = v { ud.set(v, forKey: k) } else { ud.removeObject(forKey: k) } } }
+        let validTasks = Set(tasks.map { $0.id })
+
+        // két tényleges mappa: Claude, és a Codex/Antigravity közös
+        for (rep, group) in [(SkillTarget.claude, [SkillTarget.claude]), (SkillTarget.codex, [SkillTarget.codex, SkillTarget.antigravity])] {
+            guard status[rep] == .outdated else { continue }
+            let markerURL = Self.skillDir(for: rep).appendingPathComponent(Self.markerName)
+            guard let data = try? Data(contentsOf: markerURL),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let values = obj["values"] as? [String: String] else {
+                outcome.problems.append("\(rep.title): a telepítés jelölése hiányos, használd a telepítő varázslót (Beállítások › Skill telepítése).")
+                continue
+            }
+            let markedTasks = Set((obj["tasks"] as? [String]) ?? []).intersection(validTasks)
+            let markedTargets = Set(((obj["targets"] as? [String]) ?? []).compactMap { SkillTarget(rawValue: $0) }).intersection(group)
+            selectedTasks = markedTasks.isEmpty ? validTasks : markedTasks
+            selectedTargets = markedTargets.isEmpty ? [rep] : markedTargets
+            userName = values["FELHASZNALO_NEVE"] ?? ""
+            home = values["SZEKHELY"] ?? ""
+            congregations = values["GYULEKEZETEK"] ?? ""
+            site = (values["OTS_NEV"] == OTSSite.tet.title) ? .tet : .det
+            if let e = detailsError {
+                outcome.problems.append("\(rep.title): a korábbi beállítások nem elégségesek (\(e)) Használd a telepítő varázslót.")
+                continue
+            }
+            if install() { outcome.updated += selectedTargets.sorted { $0.rawValue < $1.rawValue } }
+            else { outcome.problems.append("\(rep.title): \(errorText ?? "a frissítés nem sikerült.")") }
+        }
+        refresh()
+        return outcome
+    }
+
     // MARK: Mentések, régi skill
 
     /// Új, még nem létező mentési mappa (időbélyeggel) a skill-mentések alatt; azonos másodpercen belül is egyedi.

@@ -7,7 +7,7 @@ enum CSV {
         "Azonosító", "Dátum", "Kezdés", "Vége", "Időtartam (mp)", "Időtartam (óó:pp)",
         "Indulás", "Munkahely", "Érkezés",
         "Típus kód", "Típus", "Egység", "Mennyiség", "Tevékenység", "Forrás",
-        "Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím"
+        "Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím", "Munkahely helye"
     ]
 
     struct DecodeResult {
@@ -58,7 +58,8 @@ enum CSV {
                 e.address ?? "",
                 e.calendarID ?? "",
                 e.departureAddress ?? "",
-                e.arrivalAddress ?? ""
+                e.arrivalAddress ?? "",
+                e.workplaceIsDeparture ? "indulás" : ""
             ]
             lines.append(fields.map(quote).joined(separator: ";"))
         }
@@ -91,7 +92,7 @@ enum CSV {
         }
         let iId = idx("Azonosító"), iStart = idx("Kezdés"), iEnd = idx("Vége"), iSecs = idx("Időtartam (mp)")
         let iUnit = idx("Egység"), iDep = idx("Indulás"), iArr = idx("Érkezés"), iWork = idx("Munkahely"), iQty = idx("Mennyiség"), iAct = idx("Tevékenység"), iSrc = idx("Forrás")
-        let iAddr = idx("Cím"), iCalID = idx("Naptár azonosító"), iDepAddr = idx("Indulás cím"), iArrAddr = idx("Érkezés cím")
+        let iAddr = idx("Cím"), iCalID = idx("Naptár azonosító"), iDepAddr = idx("Indulás cím"), iArrAddr = idx("Érkezés cím"), iWpl = idx("Munkahely helye")
 
         var entries: [Entry] = []
         var warnings: [String] = []
@@ -163,7 +164,8 @@ enum CSV {
                 address: cell(iAddr).isEmpty ? nil : cell(iAddr),
                 calendarID: cell(iCalID).isEmpty ? nil : cell(iCalID),
                 departureAddress: cell(iDepAddr).isEmpty ? nil : cell(iDepAddr),
-                arrivalAddress: cell(iArrAddr).isEmpty ? nil : cell(iArrAddr)
+                arrivalAddress: cell(iArrAddr).isEmpty ? nil : cell(iArrAddr),
+                workplaceIsDeparture: cell(iWpl).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil) == "indulas"
             ))
         }
         return DecodeResult(entries: entries, warnings: warnings)

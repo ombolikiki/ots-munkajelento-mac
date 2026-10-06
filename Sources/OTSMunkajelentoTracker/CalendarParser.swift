@@ -308,23 +308,75 @@ enum CalendarParser {
         var address: String?
     }
 
-    /// „Tata” vagy „Tata, Fő út 1.” (település elöl); a fordított „Fő út 1., Tata” és az irányítószám is érthető.
-    /// Nil, ha üres, vagy nem állapítható meg a település (például számjegy van a településben).
+    /// Az utcára, házszámra utaló szavak (kisbetű- és ékezetfüggetlenül): ezekből tudjuk, hogy a vesszők közti rész cím, nem újabb település.
+    private static let streetWords: Set<String> = ["ut", "utca", "u", "ter", "korut", "krt", "setany", "koz", "dulo", "sor", "fasor",
+                                                   "rakpart", "liget", "major", "emelet", "em", "ajto", "fszt", "lepcsohaz", "epulet", "ep", "hrsz"]
+    /// A cím folytatása (az utcarész után): emelet, ajtó stb.; ezek nem új cím.
+    private static let continuationWords: Set<String> = ["emelet", "em", "ajto", "fszt", "lepcsohaz", "epulet", "ep", "hrsz"]
+
+    private static func words(_ token: String) -> [String] {
+        fold(token).split(separator: " ").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".,;")) }.filter { !$0.isEmpty }
+    }
+    private static func isStreetLike(_ token: String) -> Bool {
+        token.contains(where: { $0.isNumber }) || words(token).contains { streetWords.contains($0) }
+    }
+    private static func isContinuation(_ token: String) -> Bool {
+        words(token).contains { continuationWords.contains($0) }
+    }
+
+    /// Egy vagy több beírt hely: „Tata”, „Tata, Fő út 1.”, „Tata, Mór”, „Tata, Fő út 1., Mór”.
+    /// - A vesszővel elválasztott részek közül az utcára/házszámra utaló rész (Fő út 1., Kossuth u.) a **megelőző településhez** tartozó cím
+    ///   (település elöl); ha még nincs település, a következőhöz (a fordított „Fő út 1., Tata” is érthető).
+    /// - Minden más rész új település. A helyeket ` - ` vagy `;` is elválaszthatja (például `Tata - Mór u. 5., Mór`).
+    /// - Az irányítószám (`9021 Győr`) és a záró „Magyarország” elmarad.
+    /// Nil, ha üres, vagy egy cím mellé nem kerül település.
+    static func parsePlaces(_ raw: String) -> [ParsedPlace]? {
+        var groups: [String] = []
+        for g in raw.split(separator: ";") { groups += splitLocations(String(g)) }
+        guard !groups.isEmpty else { return nil }
+        var out: [ParsedPlace] = []
+        for g in groups {
+            var tokens = g.split(separator: ",").map { normalizeSpaces(String($0)) }.filter { !$0.isEmpty }
+            if tokens.count > 1, let last = tokens.last, countries.contains(fold(last)) { tokens.removeLast() }
+            var pending: [String] = []                       // település nélküli (utcával kezdődő) cím
+            var current: (settlement: String, street: [String])?
+            func flush() {
+                if let c = current {
+                    out.append(ParsedPlace(settlement: c.settlement, address: c.street.isEmpty ? nil : (c.street + [c.settlement]).joined(separator: ", ")))
+                    current = nil
+                }
+            }
+            for t in tokens {
+                let core = stripPostalCode(t)
+                if !core.isEmpty, isStreetLike(core) {
+                    if var c = current {
+                        if c.street.isEmpty || isContinuation(core) {
+                            c.street.append(core); current = c
+                        } else {
+                            flush(); pending = [core]        // új, utcával kezdődő cím
+                        }
+                    } else {
+                        pending.append(core)
+                    }
+                } else if !core.isEmpty {
+                    if pending.isEmpty {
+                        flush(); current = (core, [])
+                    } else {
+                        out.append(ParsedPlace(settlement: core, address: (pending + [core]).joined(separator: ", ")))
+                        pending = []
+                    }
+                }
+            }
+            flush()
+            if !pending.isEmpty { return nil }
+        }
+        return out.isEmpty ? nil : out
+    }
+
+    /// Egyetlen beírt hely (például a Kiindulás); nil, ha több helyet adtak meg vagy hibás.
     static func parsePlace(_ raw: String) -> ParsedPlace? {
-        var parts = raw.split(separator: ",").map { normalizeSpaces(String($0)) }.filter { !$0.isEmpty }
-        if parts.count > 1, let last = parts.last, countries.contains(fold(last)) { parts.removeLast() }
-        guard let firstRaw = parts.first else { return nil }
-        let first = stripPostalCode(firstRaw)
-        if parts.count == 1 {
-            return (!first.isEmpty && !first.contains(where: { $0.isNumber })) ? ParsedPlace(settlement: first, address: nil) : nil
-        }
-        if !first.isEmpty && !first.contains(where: { $0.isNumber }) {
-            let street = parts.dropFirst().joined(separator: ", ")
-            return ParsedPlace(settlement: first, address: street + ", " + first)
-        }
-        let p = place(parts.joined(separator: ", "))   // fordított sorrend: utca elöl, település a végén
-        guard let s = p.settlement, let a = p.address else { return nil }
-        return ParsedPlace(settlement: s, address: a)
+        guard let list = parsePlaces(raw), list.count == 1 else { return nil }
+        return list[0]
     }
 
     // MARK: Fő belépési pont

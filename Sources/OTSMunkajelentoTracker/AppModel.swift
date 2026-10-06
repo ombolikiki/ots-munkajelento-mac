@@ -19,9 +19,7 @@ final class AppModel: ObservableObject {
             ud.set(selectedType?.code ?? "", forKey: "draft.type")
             if type.hasQuantity == false { quantity = 1 }
             if selectedType?.isTravel == true {
-                let home = homePlace
-                if departure.isEmpty { departure = home }
-                if arrival.isEmpty { arrival = home }
+                if departure.isEmpty { departure = homePlace }
             }
         }
     }
@@ -39,10 +37,13 @@ final class AppModel: ObservableObject {
     @Published var activity: String { didSet { ud.set(activity, forKey: "draft.activity") } }
     /// Utazásnál: honnan indult / hová érkezett (a `workplace` ilyenkor a Munkahely(ek) listája).
     @Published var departure: String { didSet { ud.set(departure, forKey: "draft.departure") } }
-    @Published var arrival: String { didSet { ud.set(arrival, forKey: "draft.arrival") } }
+    /// Utazásnál a Cél: egy vagy több hely, vesszővel elválasztva, akár pontos címmel is (Tata, Fő út 1., Mór).
+    @Published var destination: String { didSet { ud.set(destination, forKey: "draft.destination") } }
     @Published var quantity: Int { didSet { ud.set(quantity, forKey: "draft.quantity") } }
-    /// Utazásnál: oda-vissza út: az útvonal végére az Indulás is kerül (Indulás - Munkahely(ek) - Érkezés - Indulás). Az utolsó választás megmarad.
-    @Published var roundTrip: Bool { didSet { ud.set(roundTrip, forKey: "travel.roundTrip") } }
+    /// Utazásnál: oda-vissza út (a munka után visszatértem a Kiindulásra). Alapból bejelölt; minden rögzítés után újra az.
+    @Published var roundTrip = true
+    /// Utazásnál: igaz, ha a Kiindulás volt a munkahely, hamis, ha a Cél (alapból a Cél).
+    @Published var workplaceIsDeparture = false
 
     // MARK: Gyülekezeti létszámjelentő
     @Published var attendance: [AttendanceReport] = []
@@ -74,6 +75,8 @@ final class AppModel: ObservableObject {
 
     // MARK: Időzítő
     @Published var now = Date()
+    /// Az Időzítő előre megadott kezdése (nil: most indul).
+    @Published var plannedStart: Date?
     @Published private(set) var timerStart: Date? {
         didSet { ud.set(timerStart?.timeIntervalSince1970 ?? 0, forKey: "timer.start") }
     }
@@ -85,6 +88,10 @@ final class AppModel: ObservableObject {
     private var pomoPhaseStart = Date()
 
     let ud = UserDefaults.standard
+    /// Igaz, ha az alkalmazás által telepített skill régebbi, mint az alkalmazásba csomagolt (a fejlécben jelzés, egy kattintással frissíthető).
+    @Published private(set) var skillUpdateAvailable = false
+    /// A legutóbbi skill-frissítés eredménye (a Beállítások › Skill részben látszik).
+    @Published var skillUpdateMessage: String?
     /// A naptár-szinkron (Mac Naptár, EventKit); csak használatkor jön létre.
     lazy var calendarSync = CalendarSyncer(model: self, source: EventKitCalendarSource())
     private var ticker: AnyCancellable?
@@ -124,9 +131,8 @@ final class AppModel: ObservableObject {
         selectedType = nil
         activity = ud.string(forKey: "draft.activity") ?? ""
         departure = ud.string(forKey: "draft.departure") ?? ""
-        arrival = ud.string(forKey: "draft.arrival") ?? ""
+        destination = ud.string(forKey: "draft.destination") ?? ""
         quantity = max(1, ud.integer(forKey: "draft.quantity"))
-        roundTrip = ud.bool(forKey: "travel.roundTrip")
         if let path = ud.string(forKey: "dataFile"), !path.isEmpty {
             var url = URL(fileURLWithPath: path)
             if url.pathExtension.lowercased() == "json" {
@@ -160,8 +166,9 @@ final class AppModel: ObservableObject {
         }
         keyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.reloadIfChanged(); self?.reloadAttendanceIfChanged(); self?.calendarSyncIfEnabled() }
+        ) { [weak self] _ in self?.reloadIfChanged(); self?.reloadAttendanceIfChanged(); self?.calendarSyncIfEnabled(); self?.refreshSkillUpdate() }
         StatusMenuController.shared.install(model: self)
+        DispatchQueue.main.async { [weak self] in self?.refreshSkillUpdate() }
         if ud.bool(forKey: "ekcal.enabled") {
             DispatchQueue.main.async { [weak self] in
                 self?.calendarSync.startObserving()
@@ -174,6 +181,30 @@ final class AppModel: ObservableObject {
     }
 
     /// Az ablak előtérbe kerülésekor (és induláskor) szinkronizál, ha a naptár-szinkron be van kapcsolva.
+    /// Megnézi, hogy a gépre telepített skill elavult-e a csomagolthoz képest; ha új változat jött, egyszer értesítést is küld.
+    func refreshSkillUpdate() {
+        let installer = SkillInstaller(model: self)
+        let outdated = installer.bundledAvailable && installer.status.values.contains(.outdated)
+        skillUpdateAvailable = outdated
+        if !outdated { skillUpdateMessage = skillUpdateMessage }   // az utolsó eredmény megmarad
+        guard outdated, let fp = installer.bundledFingerprint(), ud.string(forKey: "skill.notifiedFingerprint") != fp else { return }
+        ud.set(fp, forKey: "skill.notifiedFingerprint")
+        guard Bundle.main.bundlePath.hasSuffix(".app") else { return }   // tesztben nincs értesítés
+        notify(title: "Frissült az OTS Adminisztráció skill",
+               body: "A gépeden régebbi változat van. Egy kattintással frissítheted: a fejlécben a frissítés gomb, vagy Beállítások › Skill.",
+               soundKey: "sound.breakEnd")
+    }
+
+    /// Az elavult skill frissítése a korábbi telepítés beállításaival (másolat készül a régiről). Az eredmény szövegét adja vissza.
+    @discardableResult
+    func updateSkill() -> String {
+        let installer = SkillInstaller(model: self)
+        let outcome = installer.updateOutdated()
+        skillUpdateMessage = outcome.message
+        refreshSkillUpdate()
+        return outcome.message
+    }
+
     func calendarSyncIfEnabled() {
         guard ud.bool(forKey: "ekcal.enabled") else { return }
         calendarSync.startObserving()
@@ -185,7 +216,6 @@ final class AppModel: ObservableObject {
     var trimmedActivity: String { activity.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var trimmedDeparture: String { departure.trimmingCharacters(in: .whitespacesAndNewlines) }
-    var trimmedArrival: String { arrival.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// A Munkahely(ek) mező elemei (vesszővel elválasztva), üres elemek nélkül.
     var workplaceList: [String] {
         workplace.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
@@ -198,56 +228,31 @@ final class AppModel: ObservableObject {
     /// (oda-vissza útnál az Érkezés az Indulás).
     var fieldsComplete: Bool { missingFieldsHint == nil && selectedType != nil }
 
-    /// Az Indulás és az Érkezés beírt helye: település, vagy település és pontos cím („Tata” / „Tata, Fő út 1.”).
-    var departurePlace: CalendarParser.ParsedPlace? { CalendarParser.parsePlace(departure) }
-    var arrivalPlace: CalendarParser.ParsedPlace? { CalendarParser.parsePlace(arrival) }
-
-    /// Az Utazás összeállított útvonala a bejegyzéshez.
-    /// Oda-vissza útnál az útvonal végére az Indulás kerül (az Érkezés a bejegyzésben az Indulás), a megadott Érkezés pedig utolsó
-    /// helyként a Munkahelyek közé (kivéve, ha ugyanaz a település és nincs külön címe: például a székhely alapértéke).
+    /// Az Utazás összeállított útvonala a bejegyzéshez: a Kiindulás (egy hely) és a Cél (egy vagy több hely, akár pontos címmel).
     struct TravelPlan: Equatable {
-        var departure: CalendarParser.ParsedPlace
-        var arrival: CalendarParser.ParsedPlace
-        var workplaces: [String]
-        /// A Munkahelyek közé került Érkezés pontos címe (oda-vissza útnál).
-        var stopAddress: String?
+        var origin: CalendarParser.ParsedPlace
+        var stops: [CalendarParser.ParsedPlace]
     }
 
     var travelPlan: TravelPlan? {
-        guard let dep = departurePlace else { return nil }
-        var works = workplaceList
-        var stopAddress: String?
-        let arr: CalendarParser.ParsedPlace
-        if roundTrip {
-            arr = dep
-            if let a = arrivalPlace, CalendarParser.fold(a.settlement) != CalendarParser.fold(dep.settlement) || a.address != nil {
-                if works.last.map({ CalendarParser.fold($0) != CalendarParser.fold(a.settlement) }) ?? true { works.append(a.settlement) }
-                stopAddress = a.address
-            }
-        } else {
-            guard let a = arrivalPlace else { return nil }
-            arr = a
-        }
-        return TravelPlan(departure: dep, arrival: arr, workplaces: works, stopAddress: stopAddress)
+        guard let o = CalendarParser.parsePlace(departure), let stops = CalendarParser.parsePlaces(destination) else { return nil }
+        return TravelPlan(origin: o, stops: stops)
     }
 
-    private func placeHint(_ raw: String, name: String) -> String? {
-        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, CalendarParser.parsePlace(t) == nil else { return nil }
-        return "\(name): település, vagy település és cím vesszővel (például Tata, Fő út 1.)."
-    }
+    var trimmedDestination: String { destination.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var missingFieldsHint: String? {
         if selectedType == nil { return "Válassz tevékenység-típust." }
         if type.isWholeDay { return nil }
         if type.isTravel {
             var missing: [String] = []
-            if trimmedDeparture.isEmpty { missing.append("Indulás") }
-            if workplaceList.isEmpty { missing.append("Munkahely(ek)") }
-            if !roundTrip && trimmedArrival.isEmpty { missing.append("Érkezés") }
+            if trimmedDeparture.isEmpty { missing.append("Kiindulás") }
+            if trimmedDestination.isEmpty { missing.append("Cél") }
             if trimmedActivity.isEmpty { missing.append("Tevékenység") }
             if !missing.isEmpty { return "Kötelező mező: " + missing.joined(separator: ", ") + "." }
-            return placeHint(departure, name: "Indulás") ?? placeHint(arrival, name: "Érkezés")
+            if CalendarParser.parsePlace(departure) == nil { return "Kiindulás: egy hely, település vagy település és cím (például Győr, Fő út 1.)." }
+            if CalendarParser.parsePlaces(destination) == nil { return "Cél: települések vesszővel, címmel is (például Tata, Fő út 1., Mór)." }
+            return nil
         }
         if trimmedWorkplace.isEmpty { return "A Munkahely mező kötelező." }
         return nil
@@ -258,7 +263,9 @@ final class AppModel: ObservableObject {
         workplace = ""
         activity = ""
         departure = ""
-        arrival = ""
+        destination = ""
+        roundTrip = true
+        workplaceIsDeparture = false
         quantity = 1
         selectedType = nil
     }
@@ -373,10 +380,26 @@ final class AppModel: ObservableObject {
     var stopwatchElapsed: Int { Int(now.timeIntervalSince(timerStart ?? now)) }
     var pomoRemaining: Int { max(0, Int(pomoPhaseEnd.timeIntervalSince(now).rounded(.up))) }
 
+    /// Az Időzítő kezdése: ha előre megadtál korábbi kezdést (`plannedStart`), onnantól számol; különben most indul.
     func startStopwatch() {
         guard !pomodoroActive, timerStart == nil, fieldsComplete, !type.isWholeDay else { return }
         now = Date()
-        timerStart = now
+        timerStart = Self.clampedStart(plannedStart ?? now, now: now)
+        plannedStart = nil
+    }
+
+    /// A kezdés a mai nap 0:00 és a mostani pillanat közé szorítva (jövőbeli kezdés nem lehet; a korábbi napra csak a futó időzítő nyúlhat át).
+    static func clampedStart(_ d: Date, now: Date, notBefore: Date? = nil) -> Date {
+        let lower = notBefore ?? DateUtil.startOfDay(now)
+        return max(lower, min(d, now))
+    }
+
+    /// A futó időzítő kezdésének korrigálása (például már öt perce dolgozol, de csak most indítottad): onnantól számol.
+    /// Legfeljebb az eredeti kezdés napjának elejéig, és legkésőbb most.
+    func setTimerStart(_ d: Date) {
+        guard let current = timerStart else { return }
+        now = Date()
+        timerStart = Self.clampedStart(d, now: now, notBefore: DateUtil.startOfDay(current))
     }
 
     func stopStopwatch() {
@@ -385,6 +408,7 @@ final class AppModel: ObservableObject {
         guard fieldsComplete else { return }
         add(makeEntry(start: start, end: end, source: "timer"))
         timerStart = nil
+        plannedStart = nil
         clearDraft()
     }
 
@@ -508,24 +532,32 @@ final class AppModel: ObservableObject {
             source: source,
             departure: travelFields?.departure,
             arrival: travelFields?.arrival,
-            address: travelFields?.stopAddress,
+            address: travelFields?.stopAddresses,
             departureAddress: travelFields?.departureAddress,
-            arrivalAddress: travelFields?.arrivalAddress
+            arrivalAddress: travelFields?.arrivalAddress,
+            workplaceIsDeparture: type.isTravel && workplaceIsDeparture
         )
     }
 
-    /// Az Utazás Indulás, Érkezés és a hozzájuk tartozó pontos címek a bejegyzéshez; nil, ha nem Utazás.
-    private var travelFields: (departure: String, arrival: String, departureAddress: String?, arrivalAddress: String?, stopAddress: String?)? {
+    /// Az Utazás mezői a bejegyzéshez; nil, ha nem Utazás.
+    /// Az útvonal: Kiindulás - Cél(ok) [- Kiindulás, ha oda-vissza]. A CSV-ben: `Indulás` = Kiindulás, `Munkahely` = a Cél helyei (ez az útvonal
+    /// köztes pontjai), `Érkezés` = oda-vissza útnál a Kiindulás, egyirányú útnál a Cél utolsó helye (az összevonás miatt egyetlen pont marad),
+    /// így a skill és a webapp változtatás nélkül a helyes útvonalat kapja. Ha a Kiindulás volt a munkahely, a `Munkahely helye` oszlop jelzi.
+    private var travelFields: (departure: String, arrival: String, workplace: String, departureAddress: String?, arrivalAddress: String?, stopAddresses: String?)? {
         guard type.isTravel else { return nil }
-        if let p = travelPlan {
-            return (p.departure.settlement, p.arrival.settlement, p.departure.address, p.arrival.address, p.stopAddress)
-        }
-        return (trimmedDeparture, trimmedArrival.isEmpty ? trimmedDeparture : trimmedArrival, nil, nil, nil)
+        guard let p = travelPlan, let last = p.stops.last else { return (trimmedDeparture, trimmedDeparture, trimmedDestination, nil, nil, nil) }
+        let addresses = p.stops.compactMap { $0.address }
+        return (p.origin.settlement,
+                roundTrip ? p.origin.settlement : last.settlement,
+                p.stops.map { $0.settlement }.joined(separator: ", "),
+                p.origin.address,
+                roundTrip ? p.origin.address : nil,
+                addresses.isEmpty ? nil : addresses.joined(separator: " - "))
     }
 
-    /// A bejegyzésbe kerülő Munkahely: utazásnál a Munkahely(ek) normalizált listája (vesszővel, szóközzel).
+    /// A bejegyzésbe kerülő Munkahely: utazásnál a Cél helyei (települések, vesszővel).
     private var entryWorkplace: String {
-        type.isTravel ? (travelPlan?.workplaces ?? workplaceList).joined(separator: ", ") : trimmedWorkplace
+        type.isTravel ? (travelFields?.workplace ?? "") : trimmedWorkplace
     }
 
     /// Kézi bevitel időpont nélkül: óraszámmal (óra típusoknál), vagy csak mennyiséggel (alkalom, fő).
@@ -544,9 +576,10 @@ final class AppModel: ObservableObject {
             source: "manual",
             departure: travelFields?.departure,
             arrival: travelFields?.arrival,
-            address: travelFields?.stopAddress,
+            address: travelFields?.stopAddresses,
             departureAddress: travelFields?.departureAddress,
-            arrivalAddress: travelFields?.arrivalAddress
+            arrivalAddress: travelFields?.arrivalAddress,
+            workplaceIsDeparture: type.isTravel && workplaceIsDeparture
         )
     }
 

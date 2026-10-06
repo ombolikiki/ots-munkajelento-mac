@@ -200,6 +200,8 @@ struct Entry: Codable, Identifiable, Equatable {
     /// Utazásnál: az Indulás és az Érkezés pontos címe, ha meg van adva (a `departure` és az `arrival` település marad).
     var departureAddress: String? = nil
     var arrivalAddress: String? = nil
+    /// Utazásnál: igaz, ha az OTS-munkahely az Indulás (nem a `workplace` lista, ami ilyenkor csak az útvonal köztes helyeit adja).
+    var workplaceIsDeparture = false
 
     var activityType: ActivityType? { ActivityType.lookup(code: type) }
 

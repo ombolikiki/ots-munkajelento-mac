@@ -2,7 +2,7 @@
 
 Verzió: {{VERZIO}} · Mac (macOS 14 vagy újabb)
 
-> **Mi új ebben a verzióban?** Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
+> **Mi új ebben a verzióban?** Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
 
 > **Röviden:** menüsori időnapló lelkészeknek és gyülekezeti munkatársaknak. Rögzíted, mit csináltál és mennyi ideig, az alkalmazás összesít, figyelmeztet, ha lemaradtál, és ebből tölti ki az MI-asszisztens (Claude, ChatGPT/Codex vagy az ingyenes Antigravity CLI) az OTS Havi munkajelentőjét, a Költségelszámolást és a létszámjelentőt. Minden adat a saját gépeden marad.
 
@@ -58,18 +58,18 @@ Mindhárom rögzítési módban (Időzítő, Kézi bevitel, Pomodoro, valamint a
 
 **Rögzítés után az űrlap kiürül**, így nem kell kitörölnöd a következő bejegyzés előtt.
 
-### Utazás: Indulás, Munkahely(ek), Érkezés
+### Utazás: Kiindulás és Cél
 
-![Az Utazás három mezővel](kepek/08-utazas.png)
+![Az Utazás űrlap](kepek/urlap-cim.png)
 
-Az **Utazás** típusnál a Munkahely helyett három mező van:
+Az **Utazás** típusnál a Munkahely mező helyett két mező van:
 
-- **Indulás:** honnan indultál (alapból a székhelyed). Település (`Tata`) vagy település és pontos cím (`Tata, Fő út 1.`, a település elöl, vesszővel) is lehet. Az OTS-be mindig a település kerül, a pontos címet a Google Maps használja.
-- **Munkahely(ek):** hol dolgoztál útközben. Több település is lehet, vesszővel elválasztva, **sorrendben** (a nyíl a listához fűz).
-- **Érkezés:** hová érkeztél (alapból a székhelyed). Ugyanúgy település vagy település és pontos cím (`Mór, Kossuth u. 5.`). Az Indulásnak és az Érkezésnek külön eldöntheted, hogy van-e pontos címe.
-- **Oda-vissza** jelölő (az Érkezés mező fölött, kompakt nézetben a mező mellett): az Érkezés mező **mindig írható**. Nincs bejelölve: az útvonal `Indulás - Munkahely(ek) - Érkezés`. Be van jelölve: az útvonal végére az **Indulás** is kerül, vagyis `Indulás - Munkahely(ek) - Érkezés - Indulás`, és a Google Maps a teljes oda-vissza távolságot számolja. Ha bejelölt oda-vissza útnál az Érkezést üresen hagyod (vagy ugyanaz, mint az Indulás), az útvonal `Indulás - Munkahely(ek) - Indulás`. Az utolsó választásod megmarad. Az **Utazásnál a Tevékenység kötelező** (az Út célja), mert ez kerül a Költségelszámolás táblázatba.
+- **Kiindulás:** honnan indultál (alapból a székhelyed). Egy hely: település (`Győr`) vagy település és pontos cím (`Győr, Fő út 1.`, a település elöl, vesszővel).
+- **Cél:** hová mentél. **Több helyet is megadhatsz**, sorrendben, vesszővel elválasztva (`Tata, Mór`), és bármelyik lehet pontos címmel (`Tata, Fő út 1., Mór`). A vesszők közt az utcára vagy házszámra utaló rész (például `Fő út 1.`, `Kossuth u.`) a megelőző településhez tartozó cím, minden más rész új település. Ha kétséges, a helyeket ` - ` vagy `;` is elválasztja (`Tata - Mór u. 5., Mór`).
+- **Munkahely** választógomb a két mező fölött: azt jelöli, hogy a **Kiindulás** vagy a **Cél** volt a munkahely. Alapból a Cél. Az OTS Havi munkajelentő Munkahely mezőjébe ez kerül.
+- **Oda-vissza** pipa a két mező mellett. **Alapból be van jelölve**: a munka után visszatértél a Kiindulásra, így az útvonal `Kiindulás - Cél(ek) - Kiindulás`, és a Google Maps a teljes oda-vissza távolságot számolja. Ha **kikapcsolod**, az út egyirányú volt: `Kiindulás - Cél(ek)`. A pipa minden rögzítés után újra bejelölt.
 
-A Költségelszámolást a skill ezekből állítja össze: `Indulás - Munkahely1 - Munkahely2 - Érkezés`, és a Google Maps a pontokat sorban véve számolja ki a kilométert. Minden Utazás bejegyzés a saját útvonalát adja, tehát egy többnapos kiszállás oda- és visszaútja két külön bejegyzés.
+Az **Utazásnál a Tevékenység kötelező** (az Út célja), mert ez kerül a Költségelszámolás táblázatba. Az OTS-be mindig a **település** kerül, a pontos címet a Google Maps használja.
 
 ### A típusok
 
@@ -85,7 +85,11 @@ A Költségelszámolást a skill ezekből állítja össze: `Indulás - Munkahel
 
 ### 6.1. Időzítő
 
-Töltsd ki a mezőket, és kattints a **Start** gombra. Az idő a menüsori ikon mellett is látszik. A **Stop és mentés** gomb elmenti a bejegyzést, az **Elvetés** nem ment semmit. Ha kilépsz az alkalmazásból, miközben az időzítő fut, a kezdési idő megmarad, és az indulás után folytatódik.
+Töltsd ki a mezőket, és kattints a **Start** gombra. Az idő a menüsori ikon mellett is látszik. **Ha már régebben dolgozol, és csak most jutott eszedbe elindítani**, indítás előtt állítsd be a **Kezdés** idejét (óó:pp), vagy kattints a **−5, −10, −15, −30** gombok egyikére (ennyi perccel korábbi kezdés); a **Most** gomb visszaállítja a mostani indulást. Az idő ettől a kezdéstől számolódik. Futás közben is javítható a Kezdés (legfeljebb a nap elejéig, és nem lehet jövőbeli).
+
+![Időzítő a Kezdés beállításával](kepek/idozito-kezdes.png)
+
+ A **Stop és mentés** gomb elmenti a bejegyzést, az **Elvetés** nem ment semmit. Ha kilépsz az alkalmazásból, miközben az időzítő fut, a kezdési idő megmarad, és az indulás után folytatódik.
 
 ### 6.2. Kézi bevitel
 
@@ -242,12 +246,13 @@ A **Beállítások › Adatfájl** részben másik mappát is kijelölhetsz (pé
 | Dátum | A bejegyzés napja (ÉÉÉÉ-HH-NN). |
 | Kezdés, Vége | Időpontok (óó:pp:mm). Ha mindkettő ki van töltve, ebből számolódik az időtartam. |
 | Időtartam (mp) | Időtartam másodpercben, ha nincs kezdés és vég. |
-| Indulás, Munkahely, Érkezés | Utazásnál mindhárom (oda-vissza útnál az Érkezés az Indulással egyezik meg, és a beírt Érkezés a Munkahelyek közé kerül); más típusnál csak a Munkahely. A Munkahely(ek) vesszővel elválasztott lista. |
+| Indulás, Munkahely, Érkezés | Utazásnál mindhárom (oda-vissza útnál az Érkezés az Indulással egyezik meg; egyirányú útnál az Érkezés a Cél utolsó helye; a Munkahely oszlop a Cél helyei); más típusnál csak a Munkahely. A Munkahely(ek) vesszővel elválasztott lista. |
 | Típus kód, Típus | A kategória kódja és neve. A kódot ne írd át, ha nem kell. |
 | Mennyiség | Alkalom vagy fő. |
 | Tevékenység | Szabad szöveg. |
 | Forrás | Honnan jött a bejegyzés: `timer`, `pomodoro`, `manual` vagy `calendar` (az alkalmazás Naptár nézetében húzással felvett, vagy a Mac Naptárból átvett; az utóbbit a Naptár azonosító oszlop különbözteti meg). |
 | Cím | Opcionális. A pontos cím(ek) ` - ` (szóköz-kötőjel-szóköz) elválasztóval. A Munkahely oszlop település marad. |
+| Munkahely helye | Utazásnál: `indulás`, ha a Kiindulás volt a munkahely (az OTS Munkahely mezőjébe ilyenkor az Indulás kerül, a `Munkahely` oszlop pedig az útvonal köztes helyeit adja). Üres: a Cél helyei a munkahelyek. |
 | Indulás cím, Érkezés cím | Utazásnál az Indulás és az Érkezés pontos címe, ha megadtad (`Fő út 1., Tata` alakban: utca elöl, település a végén). Az Indulás és az Érkezés oszlop település marad. |
 | Naptár azonosító | A naptárból átvett bejegyzésnél az esemény azonosítója (+ a nap); ez alapján követi az alkalmazás a naptárat. Ne írd át. |
 
@@ -308,6 +313,17 @@ Az Antigravity ingyenes csomagja **heti kerettel** működik; ha elfogy, várj a
 **Átnevezés (1.3.2):** a skill korábbi neve `detkapu-adminisztracio` volt. Ha az alkalmazás telepítette, az új telepítés lecseréli az új nevű skillre (a régiről másolat készül a `skill-mentesek` mappába). A kézzel telepített régi skillhez (például saját magadéhoz) nem nyúl, de jelzi, hogy van; ilyenkor érdemes az egyiket törölni, hogy ne legyen két hasonló skill.
 
 **Frissítés:** az alkalmazás új verziója újabb skillt tartalmazhat. A telepítő első lépésében látod, ha „elérhető újabb változat” van; ilyenkor futtasd le újra a telepítést.
+
+### Skill-frissítés (egy kattintással)
+
+Ha az alkalmazás új változatában a skill is megváltozott (például újabb szabály az OTS kitöltéséhez), az alkalmazás **jelzi**, hogy a gépeden lévő skill régebbi:
+
+- a fejlécben egy **narancssárga frissítés-ikon** jelenik meg (a fogaskerék mellett), és egy értesítés is érkezik (egyszer, változatonként);
+- a **Beállítások › Skill** részben „Az alkalmazásban újabb skill van, mint a gépeden” sor és **Skill frissítése** gomb látszik.
+
+A gombra (vagy az ikonra) kattintva a skill **a korábbi telepítés beállításaival** frissül: ugyanazok a célok (Claude, ChatGPT/Codex, Antigravity CLI), feladatok, a neved, a székhelyed, a gyülekezeteid és a DETKapu/TETKapu választás, nem kell újra végigmenned a varázslón. A régi skillről **másolat készül** (`~/Library/Application Support/OTS Munkajelentő Tracker/skill-mentesek`). A frissítés után **indítsd újra az asszisztens alkalmazását** (Claude, ChatGPT, Antigravity), hogy az új skillt töltse be.
+
+A kézzel telepített skillt (nem a varázslóval) a frissítés nem bántja. Ha a korábbi beállítások nem elégségesek (például régi telepítésből), az alkalmazás ezt jelzi, és a **Skill telepítése…** varázslót kell használnod.
 
 ## 14. Kézi felvitel az OTS-be (skill nélkül)
 
@@ -423,14 +439,12 @@ A nulla vagy negatív időtartamú vagy 31 napnál hosszabb eseményt itt nem le
 
 ### 15.7. Pontos cím a kézi felvitelben (Utazás)
 
-Az Utazás **Indulás** és **Érkezés** mezőjébe település (`Tata`) vagy település és pontos cím is írható (`Tata, Fő út 1.`: a település elöl, vesszővel). Külön jelölőnégyzet nincs: az egyik mezőbe lehet pontos cím, a másikba egyszerű település. A Munkahely(ek) mező változatlan (települések, vesszővel).
+Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy település és pontos cím is írható (`Tata, Fő út 1.`: a település elöl, vesszővel). A Célba több hely is írható, mindegyik külön lehet egyszerű vagy pontos (`Tata, Fő út 1., Mór`). Külön jelölőnégyzet nincs. Részletek: az 5. fejezet „Utazás” pontja.
 
-![Az Utazás űrlap pontos címmel az Indulásnál](kepek/urlap-cim.png)
-
-- A cím a bejegyzés **Indulás cím** és **Érkezés cím** mezőjébe kerül, az OTS-be továbbra is a település megy.
+- A cím a bejegyzés **Indulás cím** és **Cím** (a Cél helyeié) mezőjébe kerül, az OTS-be továbbra is a település megy.
 - A **Költségelszámolás Google Maps** gombja a pontos címet használja (előbb ellenőrzi az Apple szolgáltatásával; ha nem találja, a település kerül a hivatkozásba, lásd 15.4).
-- Oda-vissza útnál a visszaút az **Indulás** pontos címére megy.
-- A cím formája: `Település, utca házszám`. A fordított `Fő út 1., Tata` és az irányítószám (`9021 Győr`) is érthető. Hibás forma esetén a rögzítés gomb alatt jelzi az alkalmazás.
+- Oda-vissza útnál a visszaút a Kiindulás pontos címére megy.
+- A cím formája `Település, utca házszám`. A fordított `Fő út 1., Tata` és az irányítószám (`9021 Győr`) is érthető. Hibás forma esetén a rögzítés gomb alatt jelzi az alkalmazás.
 
 ## 16. Hibaelhárítás
 
@@ -458,6 +472,14 @@ Az Utazás **Indulás** és **Érkezés** mezőjébe település (`Tata`) vagy t
 ## 17. Változásnapló
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
+
+### 1.5.0
+- **Skill-frissítés egy kattintással.** Ha az alkalmazásban újabb a skill, mint a gépeden telepített, az alkalmazás jelzi (fejléc-ikon, értesítés, Beállítások › Skill), és egy kattintással frissíti a korábbi telepítés beállításaival (másolat a régiről).
+- **Időzítő: korábbi kezdés.** Indítás előtt megadható a Kezdés ideje (óó:pp, vagy −5/−10/−15/−30 perc gombok), futás közben is javítható; az idő onnantól számolódik (legfeljebb a nap elejéig, jövőbeli nem lehet).
+- **Az Utazás űrlap újratervezve.** Nincs külön Munkahely(ek) mező: **Kiindulás** és **Cél**. A Célba több hely is írható, pontos címmel is (`Tata, Fő út 1., Mór`); a Kiindulásba egy hely (`Győr, Fő út 1.`).
+- **„Munkahely” választógomb** a Kiindulás és a Cél fölött: azt jelöli, melyik volt a munkahely (alapból a Cél). Új, opcionális CSV-oszlop: `Munkahely helye` (`indulás`, ha a Kiindulás volt).
+- **Oda-vissza pipa** a két mező mellett, **alapból bejelölt**: `Kiindulás - Cél(ek) - Kiindulás`. Kikapcsolva egyirányú út: `Kiindulás - Cél(ek)`. Minden rögzítés után újra bejelölt.
+- A CSV-ben az Indulás, a Munkahely (a Cél helyei) és az Érkezés oszlop jelentése változatlan, így a skill és a régi fájlok tovább működnek.
 
 ### 1.4.1
 - **Utazás: pontos cím az Indulás és az Érkezés mezőben.** Település (`Tata`) vagy település és cím (`Tata, Fő út 1.`) is írható, mindkét mezőnél külön döntheted el, hogy van-e pontos címe. A „Teljes címet adok meg” jelölőnégyzet megszűnt (kézi felvitelnél most csak az Utazásnál van pontos cím; a naptárból átvett bejegyzésé a `Cím` oszlopban továbbra is). Az OTS-be a település megy, a pontos címet a Google Maps használja. Új CSV-oszlopok: `Indulás cím`, `Érkezés cím`.

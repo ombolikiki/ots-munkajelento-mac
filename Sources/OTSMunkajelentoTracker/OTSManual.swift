@@ -105,7 +105,7 @@ enum OTSManual {
     }
 
     /// Az útvonal pontjai pontos címekkel: a Munkahely(ek) pontjaihoz a bejegyzés `Cím` mezőjének azonos településű címei
-    /// kerülnek (sorrendben, egy cím egyszer); az Indulás és az Érkezés pontját a bejegyzés saját `Indulás cím` és `Érkezés cím` mezője adja (ha van). Csak az azonos nevű, cím nélküli szomszédos pontok vonódnak össze.
+    /// kerülnek (sorrendben, egy cím egyszer); az Indulás és az Érkezés pontját a bejegyzés saját `Indulás cím` és `Érkezés cím` mezője adja (ha van). Az azonos nevű szomszédos pontok összevonódnak, ha a későbbinek nincs külön címe.
     static func routeDetail(_ e: Entry, home: String) -> [RoutePoint] {
         let dep = (e.departure ?? "").trimmingCharacters(in: .whitespaces)
         let arr = (e.arrival ?? "").trimmingCharacters(in: .whitespaces)
@@ -114,7 +114,8 @@ enum OTSManual {
         var points: [RoutePoint] = []
         func add(_ p: RoutePoint) {
             guard !p.name.isEmpty else { return }
-            if let last = points.last, last.address == nil, p.address == nil, last.name.caseInsensitiveCompare(p.name) == .orderedSame { return }
+            // Az azonos nevű szomszédos pont összevonódik, ha a későbbi nem ad új információt (nincs külön címe).
+            if let last = points.last, p.address == nil, last.name.caseInsensitiveCompare(p.name) == .orderedSame { return }
             points.append(p)
         }
         add(RoutePoint(name: dep.isEmpty ? home : dep, address: dep.isEmpty ? nil : e.departureAddress))
@@ -133,8 +134,10 @@ enum OTSManual {
     static func workplaceList(_ entries: [Entry]) -> [String] {
         var places: [String] = []
         for e in chronological(entries) {
+            // Utazásnál a Munkahely(ek) lista, vagy ha a munkahely az Indulás volt, az Indulás.
             let parts = e.type == ActivityType.travel.code
-                ? e.workplace.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                ? (e.workplaceIsDeparture ? [(e.departure ?? "").trimmingCharacters(in: .whitespaces)]
+                                          : e.workplace.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
                 : [e.workplace.trimmingCharacters(in: .whitespaces)]
             for p in parts where !p.isEmpty && !places.contains(where: { $0.caseInsensitiveCompare(p) == .orderedSame }) {
                 places.append(p)

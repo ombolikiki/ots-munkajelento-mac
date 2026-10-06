@@ -240,6 +240,15 @@ struct ContentView: View {
             if compact {
                 Text(shortSummary).font(.caption2).foregroundStyle(.secondary)
             }
+            if m.skillUpdateAvailable {
+                Button { m.updateSkill() } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+                        .font(.system(size: compact ? 12 : 14))
+                        .foregroundStyle(Theme.warn)
+                }
+                .buttonStyle(.plain)
+                .help("Frissült az OTS Adminisztráció skill: kattints, és a gépeden lévő skill frissül (a régiről másolat készül)")
+            }
             headerButton("tablecells.badge.ellipsis", help: "Kézi felvitel az OTS-be: a bejegyzések listája és táblázata") {
                 OTSManualWindow.shared.show(model: m)
             }
@@ -417,9 +426,9 @@ struct FieldsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 10) {
             HStack(alignment: .bottom, spacing: compact ? 6 : 10) {
-                if !m.type.isWholeDay || m.selectedType == nil {
-                    labeled(isTravel ? "Munkahely(ek)" : "Munkahely") {
-                        placeField(text: $m.workplace, prompt: isTravel ? "pl. Mohács, Szigetvár" : "Munkahely", append: isTravel)
+                if (!m.type.isWholeDay || m.selectedType == nil) && !isTravel {
+                    labeled("Munkahely") {
+                        placeField(text: $m.workplace, prompt: "Munkahely", append: false)
                     }
                 }
                 labeled("Tevékenység típusa") {
@@ -437,12 +446,7 @@ struct FieldsView: View {
                 }
             }
 
-            if isTravel {
-                HStack(alignment: .bottom, spacing: compact ? 6 : 10) {
-                    labeled("Indulás") { placeField(text: $m.departure, prompt: "Tata vagy Tata, Fő út 1.", append: false) }
-                    arrivalCell
-                }
-            }
+            if isTravel { travelRow }
 
             if m.type.hasQuantity && m.selectedType != nil {
                 HStack {
@@ -471,27 +475,46 @@ struct FieldsView: View {
         isTravel ? "Mi volt az út célja?" : (m.type.isWholeDay ? "Megjegyzés" : "Mit csináltál? (nem kötelező)")
     }
 
-    /// Érkezés mező az „Oda-vissza” jelölővel. Az Érkezés mindig írható: település, vagy település és pontos cím (Tata, Fő út 1.).
-    /// Nincs bejelölve: Indulás - Munkahely(ek) - Érkezés. Bejelölve az útvonal végére az Indulás is kerül (… - Érkezés - Indulás);
-    /// üresen hagyott Érkezésnél az útvonal Indulás - Munkahely(ek) - Indulás.
-    private var arrivalCell: some View {
+    /// Utazás: Kiindulás és Cél (a Cél több helyet is tartalmazhat, akár pontos címmel: Tata, Fő út 1., Mór), a két mező mellett az
+    /// „Oda-vissza” jelölő (alapból bejelölt: a munka után visszatértem a Kiindulásra; kivéve egyirányú út). A mezők fölött a „Munkahely”
+    /// választógomb jelöli, hogy a Kiindulás vagy a Cél volt a munkahely (alapból a Cél).
+    private var travelRow: some View {
+        HStack(alignment: .top, spacing: compact ? 6 : 8) {
+            travelColumn("Kiindulás", isWorkplace: m.workplaceIsDeparture, select: { m.workplaceIsDeparture = true }) {
+                placeField(text: $m.departure, prompt: "pl. Győr", append: false)
+            }
+            travelColumn("Cél", isWorkplace: !m.workplaceIsDeparture, select: { m.workplaceIsDeparture = false }) {
+                placeField(text: $m.destination, prompt: "pl. Tata, Fő út 1., Mór", append: true)
+            }
+            VStack(spacing: 3) {
+                Text("Oda-\nvissza").font(.system(size: 10)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    .frame(height: 26)
+                Toggle("", isOn: $m.roundTrip).toggleStyle(.checkbox).labelsHidden()
+                    .help(m.roundTrip ? "Oda-vissza: a munka után visszatértem a Kiindulásra. Kikapcsolva egyirányú út." : "Egyirányú út. Bejelölve oda-vissza: a munka után visszatértem a Kiindulásra.")
+            }
+            .frame(width: compact ? 40 : 46)
+        }
+    }
+
+    private func travelColumn<Content: View>(_ title: String, isWorkplace: Bool, select: @escaping () -> Void,
+                                             @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            if !compact {
-                HStack {
-                    Text("Érkezés").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Toggle("Oda-vissza", isOn: $m.roundTrip)
-                        .toggleStyle(.checkbox).font(.caption)
-                        .help("Oda-vissza út: az útvonal végére az Indulás is kerül (Indulás - Munkahely(ek) - Érkezés - Indulás), a kilométer a teljes oda-vissza távolság")
-                }
-            }
             HStack(spacing: 4) {
-                placeField(text: $m.arrival, prompt: m.roundTrip ? "Érkezés (nem kötelező)" : "Tata vagy Tata, Fő út 1.", append: false)
-                if compact {
-                    Toggle("", isOn: $m.roundTrip).toggleStyle(.checkbox).labelsHidden()
-                        .help("Oda-vissza út: az útvonal végére az Indulás is kerül")
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Spacer(minLength: 2)
+                Button(action: select) {
+                    HStack(spacing: 3) {
+                        Image(systemName: isWorkplace ? "largecircle.fill.circle" : "circle")
+                        Text("Munkahely")
+                    }
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(isWorkplace ? Color.primary : Color.secondary)
                 }
+                .buttonStyle(.plain)
+                .help("Ez a hely volt a munkahely (az OTS Munkahely mezőjébe ez kerül)")
             }
+            .frame(height: 26, alignment: .bottom)
+            content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -540,6 +563,7 @@ struct FieldsView: View {
 // MARK: - Időzítő
 
 struct StopwatchView: View {
+    @Environment(\.palette) private var palette
     @EnvironmentObject var m: AppModel
     @Environment(\.compact) private var compact
     @State private var pulse = false
@@ -559,6 +583,8 @@ struct StopwatchView: View {
             .frame(maxWidth: .infinity)
             .onAppear { pulse = true }
 
+            startRow
+
             if m.stopwatchRunning {
                 HStack(spacing: 8) {
                     BigButton(title: "Stop és mentés", symbol: "stop.fill", color: Theme.stop, enabled: m.fieldsComplete) {
@@ -575,6 +601,49 @@ struct StopwatchView: View {
                 if let h = startHint { Hint(text: h) }
             }
         }
+    }
+
+    /// A kezdés ideje: indítás előtt megadható egy korábbi időpont (ma, egy gyors gombbal vagy óó:pp-vel), futás közben korrigálható.
+    /// Az eltelt idő a megadott kezdéstől számolódik.
+    private var startRow: some View {
+        let nowDate = Date()
+        let dayStart = DateUtil.startOfDay(m.timerStart ?? nowDate)
+        let binding = Binding<Date>(
+            get: { m.stopwatchRunning ? (m.timerStart ?? nowDate) : (m.plannedStart ?? Date()) },
+            set: { v in
+                if m.stopwatchRunning { m.setTimerStart(v) }
+                else { m.plannedStart = v >= Date().addingTimeInterval(-30) ? nil : AppModel.clampedStart(v, now: Date()) }
+            })
+        return VStack(spacing: 3) {
+            HStack(spacing: 6) {
+                Text("Kezdés").font(.caption).foregroundStyle(.secondary)
+                DatePicker("", selection: binding, in: dayStart...nowDate, displayedComponents: .hourAndMinute)
+                    .labelsHidden().environment(\.locale, Locale(identifier: "hu_HU"))
+                    .fixedSize()
+                Spacer(minLength: 2)
+                if !m.stopwatchRunning {
+                    ForEach([5, 10, 15, 30], id: \.self) { mins in
+                        Button("−\(mins)") { m.plannedStart = AppModel.clampedStart(Date().addingTimeInterval(-Double(mins) * 60), now: Date()) }
+                            .buttonStyle(.plain).font(.system(size: 11, weight: .medium)).foregroundStyle(palette.accent)
+                            .help("\(mins) perccel korábbi kezdés")
+                    }
+                    if m.plannedStart != nil {
+                        Button("Most") { m.plannedStart = nil }
+                            .buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundStyle(palette.accent)
+                    }
+                }
+            }
+            if let note = startNote { Text(note).font(.caption2).foregroundStyle(.secondary) }
+        }
+    }
+
+    private var startNote: String? {
+        if m.stopwatchRunning { return "A kezdés itt korrigálható: az idő onnantól számolódik." }
+        if let p = m.plannedStart {
+            let mins = max(0, Int(Date().timeIntervalSince(p) / 60))
+            return mins > 0 ? "\(mins) perccel ezelőttől számolom az időt." : nil
+        }
+        return nil
     }
 
     private var canStart: Bool { !m.pomodoroActive && m.fieldsComplete && !m.type.isWholeDay }
