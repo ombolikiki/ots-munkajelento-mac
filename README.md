@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.5.4)
+# OTS Munkajelentő Tracker (1.5.5)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -32,6 +32,10 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.5.5
+
+- **Javítás:** a Tevékenység típusa mezőben a javaslat elfogadása után (Enter, Tab, kattintás) üresnek látszott a mező, mert a fókusz a mezőben maradt, és a kiválasztott típus neve csak fókusz nélkül volt kirajzolva. Most elfogadás után a mező elengedi a fókuszt (`blurOnPick`), fókuszban pedig a típus neve halványan látszik. Teszt: fókuszba állított mező, szimulált kattintás a javaslatra.
 
 ### 1.5.4
 

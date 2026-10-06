@@ -103,6 +103,8 @@ struct SuggestTextField: View {
     /// Ha megadott, az elfogadott javaslatot ez kapja meg (a szöveg nem íródik át): a Tevékenység típusa mező használja.
     var onPick: ((String) -> Void)?
     var focusState: Binding<Bool>?
+    /// Elfogadás után a mező elengedi a fókuszt (a Tevékenység típusa mezőnél: utána a kiválasztott típus neve látszik).
+    var blurOnPick = false
     /// Csak teszthez: a lista fókusz nélkül is látszik.
     var forceOpen = false
 
@@ -160,6 +162,7 @@ struct SuggestTextField: View {
         else { text = Suggest.apply(item, to: text, list: list) }
         closed = true
         highlight = -1
+        if blurOnPick { focused = false }
     }
 }
 
@@ -170,8 +173,15 @@ struct SuggestTextField: View {
 struct TypeSuggestField: View {
     @EnvironmentObject var m: AppModel
     @AppStorage("suggest.enabled") private var enabled = true
-    @State private var query = ""
+    @State private var query: String
     @State private var focused = false
+    /// Csak teszthez.
+    private let forceOpen: Bool
+
+    init(initialQuery: String = "", forceOpen: Bool = false) {
+        _query = State(initialValue: initialQuery)
+        self.forceOpen = forceOpen
+    }
 
     var body: some View {
         if enabled { suggestField } else { classicPicker }
@@ -189,22 +199,27 @@ struct TypeSuggestField: View {
         .labelsHidden()
     }
 
+    private var currentLabel: String { m.selectedType?.label ?? "Válassz típust…" }
+
     private var suggestField: some View {
         HStack(spacing: 2) {
             ZStack(alignment: .leading) {
-                SuggestTextField(prompt: "", text: $query, candidates: { ActivityType.all.map { $0.label } },
+                // fókuszban (és üresen) a kiválasztott típus halványan látszik, így a szöveg sosem „tűnik el”
+                SuggestTextField(prompt: focused ? currentLabel : "", text: $query, candidates: { ActivityType.all.map { $0.label } },
                                  onPick: { label in
                                      if let t = ActivityType.all.first(where: { $0.label == label }) { m.selectedType = t }
-                                 }, focusState: $focused)
-                // a kiválasztott típus (amíg nem gépelsz)
+                                 }, focusState: $focused, blurOnPick: true, forceOpen: forceOpen)
+                // a kiválasztott típus (amíg nem gépelsz és a mező nincs fókuszban)
                 if query.isEmpty && !focused {
-                    Text(m.selectedType?.label ?? "Válassz típust…")
+                    Text(currentLabel)
                         .font(.system(size: 13))
                         .foregroundStyle(m.selectedType == nil ? Color.secondary : Color.primary)
                         .padding(.leading, 7)
                         .allowsHitTesting(false)
                 }
             }
+            // a mezőből kilépve a félbehagyott keresés eldobódik, és újra a kiválasztott típus látszik
+            .onChange(of: focused) { if !focused && !forceOpen { query = "" } }
             Menu {
                 ForEach(ActivityType.groups, id: \.name) { group in
                     Section(group.name) {

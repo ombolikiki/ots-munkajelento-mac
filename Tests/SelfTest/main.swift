@@ -554,6 +554,59 @@ do {
     }
 }
 
+section("Tevékenység típusa: javaslat elfogadása")
+do {
+    // Hiba (1.5.4): a javaslat elfogadása után (Enter, Tab vagy kattintás) a mező üresnek látszott, mert a fókusz a mezőben maradt,
+    // és a kiválasztott típus neve csak fókusz nélkül volt kirajzolva.
+    UserDefaults.standard.removeObject(forKey: "suggest.enabled")
+    let tdir = tmp + "/typefield"
+    try? FileManager.default.removeItem(atPath: tdir)
+    UserDefaults.standard.set(tdir + "/bejegyzesek.csv", forKey: "dataFile")
+    let tm = AppModel()
+    tm.selectedType = nil
+    struct TypeHarness: View {
+        @ObservedObject var m: AppModel
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TypeSuggestField(initialQuery: "ügy", forceOpen: true).environmentObject(m)
+                Text("alatta").font(.caption)
+                Spacer()
+            }
+            .padding(20).frame(width: 320, height: 220, alignment: .topLeading)
+            .environment(\.palette, .blue)
+        }
+    }
+    let h = NSHostingController(rootView: TypeHarness(m: tm))
+    h.sizingOptions = []
+    let w = NSWindow(contentViewController: h)
+    w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .white
+    w.setContentSize(NSSize(width: 320, height: 220))
+    w.makeKeyAndOrderFront(nil)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+    func textFields(_ v: NSView) -> [NSTextField] { (v as? NSTextField).map { [$0] } ?? [] + v.subviews.flatMap { textFields($0) } }
+    func allTextFields(_ v: NSView) -> [NSTextField] { var out: [NSTextField] = []; if let t = v as? NSTextField { out.append(t) }; for s in v.subviews { out += allTextFields(s) }; return out }
+    let field = allTextFields(w.contentView ?? NSView()).first { $0.isEditable }
+    check("a típusmező szövegmezője megtalálható", field != nil)
+    if let field = field {
+        w.makeFirstResponder(field)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        check("a mező fókuszban van (a hiba itt jelentkezett)", field.currentEditor() != nil)
+        func click(_ topLeft: NSPoint) {
+            let p = NSPoint(x: topLeft.x, y: 220 - topLeft.y)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                if let ev = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { w.sendEvent(ev) }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        }
+        // az első javaslat (Ügyintézés) a mező alatt: kb. y 46–66
+        click(NSPoint(x: 60, y: 57))
+        check("a kattintásra a típus beállt", tm.selectedType == .officeWork, "\(String(describing: tm.selectedType))")
+        check("elfogadás után a mező elengedi a fókuszt", field.currentEditor() == nil)
+    }
+    w.orderOut(nil)
+    UserDefaults.standard.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
+}
+
 // MARK: Menüsori számláló: állandó szélesség
 
 section("Menüsori számláló")

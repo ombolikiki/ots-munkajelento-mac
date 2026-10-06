@@ -483,6 +483,9 @@ Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy tele
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
 
+### 1.5.5
+- **Javítás: a Tevékenység típusa mezőben a javaslat elfogadása után (Enter, Tab vagy kattintás) eltűnt a szöveg.** Most elfogadás után a mező elengedi a fókuszt, és a kiválasztott típus neve látszik; gépelés közben (fókuszban, üresen) a kiválasztott típus halványan látszik, és ha a keresést félbehagyva kilépsz a mezőből, újra a kiválasztott típus látszik.
+
 ### 1.5.4
 - **Beállítások fülekre osztva:** Megjelenés, Rögzítés, Naptár, OTS, Adatok (a fülsor az app többi fülével egyező stílusú, az utolsó fül megmarad).
 - **Újranyitáskor a rögzítő oldal:** ha a menüsori ablakot bezárod a Beállításokban (ikonra vagy kívülre kattintva), újranyitáskor a rögzítő oldal jön. A leválasztott ablakra ez nem vonatkozik.
