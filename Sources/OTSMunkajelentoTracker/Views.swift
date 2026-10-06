@@ -173,6 +173,8 @@ struct ContentView: View {
         .environment(\.listBudget, listBudget)
         .environment(\.attendanceBlocks, attendanceBlocks)
         .onAppear { m.reloadIfChanged(); m.reloadAttendanceIfChanged() }
+        // Ha a menüsori ablakot bezárják (ikonra vagy kívülre kattintva), újranyitáskor a rögzítő oldal jön, nem a Beállítások.
+        .onChange(of: panel.menuHiddenCount) { if !detached { showSettings = false } }
         .background(
             WindowReader { window in
                 if !detached { PanelController.shared.menuWindow = window }
@@ -185,23 +187,24 @@ struct ContentView: View {
             header
             if !showSettings, m.reminderActive { reminderBanner }
             if showSettings {
+                SettingsTabBar()
                 if detached {
                     SettingsView()
                 } else {
                     ScrollView { SettingsView() }
-                        .frame(height: min(620, Self.maxContentHeight - 120))
+                        .frame(height: min(590, Self.maxContentHeight - 165))
                 }
             } else {
                 ModeTabs()
                 switch m.mode {
                 case .timer:
-                    FieldsView()
+                    FieldsView().zIndex(2)   // a javaslatlista a lentebbi kártyákra takar rá
                     StopwatchView().card()
                 case .manual:
-                    FieldsView()
+                    FieldsView().zIndex(2)
                     ManualView().card()
                 case .pomodoro:
-                    FieldsView()
+                    FieldsView().zIndex(2)
                     PomodoroView().card()
                 case .calendar:
                     CalendarTabView()
@@ -432,17 +435,7 @@ struct FieldsView: View {
                     }
                 }
                 labeled("Tevékenység típusa") {
-                    Picker("", selection: $m.selectedType) {
-                        Text("Válassz típust…").tag(ActivityType?.none)
-                        ForEach(ActivityType.groups, id: \.name) { group in
-                            Section(group.name) {
-                                ForEach(group.types) { t in
-                                    Text(t.label).tag(Optional(t))
-                                }
-                            }
-                        }
-                    }
-                    .labelsHidden()
+                    TypeSuggestField()
                 }
             }
 
@@ -460,8 +453,7 @@ struct FieldsView: View {
             }
 
             labeled(activityTitle) {
-                TextField(activityPrompt, text: $m.activity)
-                    .textFieldStyle(.roundedBorder)
+                SuggestTextField(prompt: activityPrompt, text: $m.activity, candidates: { m.activitySuggestions() })
             }
         }
         .card()
@@ -522,8 +514,7 @@ struct FieldsView: View {
     /// Szövegmező a mentett helyszínek menüjével. `append`: a menü a listához fűz (Munkahely(ek)), egyébként lecserél.
     private func placeField(text: Binding<String>, prompt: String, append: Bool) -> some View {
         HStack(spacing: 2) {
-            TextField(prompt, text: text)
-                .textFieldStyle(.roundedBorder)
+            SuggestTextField(prompt: prompt, text: text, candidates: { m.workplaceSuggestions }, list: append)
             Menu {
                 if m.workplaceSuggestions.isEmpty {
                     Text("Még nincs mentett helyszín")

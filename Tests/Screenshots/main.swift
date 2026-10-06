@@ -29,8 +29,8 @@ m.addAttendanceCongregation("Bicske")
 
 func add(_ place: String, _ act: String, _ t: ActivityType, _ day: Int, _ h1: Int, _ m1: Int, _ h2: Int, _ m2: Int, q: Int = 1, dep: String? = nil, arr: String? = nil) {
     m.workplace = place; m.activity = act; m.selectedType = t; m.quantity = q
-    if let dep = dep { m.departure = dep }
-    if let arr = arr { m.arrival = arr }
+    // Utazásnál az 1.5.0 óta Kiindulás és Cél van (a Munkahely a Cél); az `arr` egyirányú útnál a Cél utolsó helye lenne, itt oda-vissza út
+    if t.isTravel { m.departure = dep ?? m.departure; m.destination = place; m.roundTrip = true; _ = arr }
     m.add(m.makeEntry(start: at(day, h1, m1), end: at(day, h2, m2), source: "manual")); m.clearDraft()
 }
 
@@ -159,7 +159,7 @@ struct IconsOverview: View {
 }
 shot("11-menusor-ikonok", AnyView(IconsOverview()))
 ud.set(true, forKey: "reminder.enabled")
-shot("12-beallitasok", AnyView(ScrollView { SettingsView().padding(14).frame(width: 440) }.frame(width: 440, height: 2800)), size: NSSize(width: 440, height: 2800))
+shot("12-beallitasok", AnyView(ScrollView { SettingsView(showAllTabs: true).padding(14).frame(width: 440) }.frame(width: 440, height: 2800)), size: NSSize(width: 440, height: 2800))
 
 // Skill-telepítő lépései
 let inst = SkillInstaller(model: m)
@@ -190,5 +190,5 @@ otsShot("23-kezi-munkajelento-naptar", .work, .calendar)
 otsShot("24-kezi-koltseg", .cost, .table)
 otsShot("25-kezi-letszam", .attendance, .table, attendance: true)
 otsShot("26-kezi-sotet", .work, .calendar, dark: true)
-shot("27-szinek-beallitas", AnyView(SettingsView().padding(14).frame(width: 440)), size: NSSize(width: 440, height: 760))
+shot("27-szinek-beallitas", AnyView(SettingsView(showAllTabs: true).padding(14).frame(width: 440)), size: NSSize(width: 440, height: 760))
 print("kész")

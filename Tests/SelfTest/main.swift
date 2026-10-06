@@ -390,6 +390,170 @@ if ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"] != nil, ProcessInfo.p
     print("(kihagyva: az OTS_SKILL_SOURCE és az OTS_HOME nincs beállítva)")
 }
 
+// MARK: 1.5.4: javaslatok gépelés közben, beállítás-fülek, újranyitás
+
+section("Javaslatok gépelés közben")
+do {
+    let types = ["Istentisztelet", "Ügyintézés", "Értekezlet", "Adminisztráció", "Felkészülés", "Továbbképzés – résztvevő", "Utazás"]
+    check("javaslat: ügy → Ügyintézés", Suggest.matches(query: "ügy", candidates: types) == ["Ügyintézés"])
+    check("javaslat: ékezet nélkül is (ugy)", Suggest.matches(query: "ugy", candidates: types) == ["Ügyintézés"])
+    check("javaslat: nagybetűvel is", Suggest.matches(query: "ÜGYIN", candidates: types) == ["Ügyintézés"])
+    check("javaslat: üres szövegre nincs", Suggest.matches(query: "", candidates: types).isEmpty && Suggest.matches(query: "   ", candidates: types).isEmpty)
+    check("javaslat: nincs találat", Suggest.matches(query: "xyz", candidates: types).isEmpty)
+    check("javaslat: a pontosan egyező nem kerül a listára", Suggest.matches(query: "Utazás", candidates: types).isEmpty && Suggest.matches(query: "utazas", candidates: types).isEmpty)
+    check("javaslat: a szó eleje is találat (résztvevő)", Suggest.matches(query: "rész", candidates: types) == ["Továbbképzés – résztvevő"])
+    check("javaslat: bárhol benne (inté)", Suggest.matches(query: "min", candidates: types) == ["Adminisztráció"])
+    check("javaslat: a szóeleji találat a belsőt megelőzi", Suggest.matches(query: "a", candidates: ["Pálya", "Alma", "Ma a nap"]) == ["Alma", "Ma a nap", "Pálya"], "\(Suggest.matches(query: "a", candidates: ["Pálya", "Alma", "Ma a nap"]))")
+    check("javaslat: ismétlődés nélkül, legfeljebb a megadott darab", Suggest.matches(query: "t", candidates: ["Tata", "tata", "Tatabánya", "Tát", "Tab", "Tag", "Tan"], limit: 3).count == 3 && Set(Suggest.matches(query: "ta", candidates: ["Tata", "tata", "TATA ", "Tatabánya"]).map { Suggest.norm($0) }).count == Suggest.matches(query: "ta", candidates: ["Tata", "tata", "TATA ", "Tatabánya"]).count)
+    // listás mező
+    check("lista: az utolsó elválasztó utáni rész", Suggest.split("Tata, Mó").segment == "Mó" && Suggest.split("Tata, Mó").prefix == "Tata," && Suggest.split("Tata").segment == "Tata" && Suggest.split("Tata").prefix == "")
+    check("lista: ` - ` és `;` is elválaszt", Suggest.split("Tata - Mó").segment == "Mó" && Suggest.split("Tata; Mó").segment == "Mó")
+    check("lista: beillesztés az éppen írt rész helyére", Suggest.apply("Mór", to: "Tata, Mó", list: true) == "Tata, Mór" && Suggest.apply("Tata", to: "Ta", list: true) == "Tata" && Suggest.apply("Mór", to: "Tata - Mó", list: true) == "Tata - Mór")
+    check("lista: egyszerű mezőnél a teljes szöveg cserélődik", Suggest.apply("Ügyintézés", to: "ügy", list: false) == "Ügyintézés")
+    let places = ["Tata", "Tatabánya", "Mór", "Győr"]
+    check("lista: a Cél éppen írt részére javasol", Suggest.suggestions(text: "Tata, Mó", candidates: places, list: true) == ["Mór"])
+    check("lista: a már megadott helyet nem javasolja újra", Suggest.suggestions(text: "Tata, Ta", candidates: places, list: true) == ["Tatabánya"])
+    check("lista: cím (utca, házszám) írása közben nincs javaslat", Suggest.suggestions(text: "Tata, Fő út 1", candidates: places, list: true).isEmpty && Suggest.suggestions(text: "Tata, Kossuth u.", candidates: places, list: true).isEmpty)
+    check("lista: vessző után még üres rész: nincs javaslat", Suggest.suggestions(text: "Tata, ", candidates: places, list: true).isEmpty)
+    // korábbi tevékenységek
+    let sdir = tmp + "/suggest"
+    try? FileManager.default.removeItem(atPath: sdir)
+    UserDefaults.standard.set(sdir + "/bejegyzesek.csv", forKey: "dataFile")
+    let sm = AppModel()
+    func ent(_ type: ActivityType, _ act: String, _ day: String) -> Entry {
+        Entry(id: UUID(), date: day, start: nil, end: nil, durationSeconds: 3600, workplace: "Győr", type: type.code, typeLabel: type.label, unit: type.unit.rawValue, quantity: nil, activity: act, source: "manual")
+    }
+    sm.add(ent(.meeting, "Heti megbeszélés", "2026-10-01"))
+    sm.add(ent(.preparing, "Prédikáció", "2026-10-02"))
+    sm.add(ent(.meeting, "Munkatársi értekezlet", "2026-10-03"))
+    sm.add(ent(.meeting, "heti megbeszélés", "2026-10-04"))
+    sm.add(ent(.preparing, "", "2026-10-05"))
+    sm.selectedType = .meeting
+    check("tevékenység-javaslat: a legutóbbi elöl, az azonos típusúak előbb, ismétlődés és üres nélkül", sm.activitySuggestions() == ["heti megbeszélés", "Munkatársi értekezlet", "Prédikáció"], "\(sm.activitySuggestions())")
+    sm.selectedType = .preparing
+    check("tevékenység-javaslat: típusváltásra más a sorrend", sm.activitySuggestions().first == "Prédikáció", "\(sm.activitySuggestions())")
+    sm.selectedType = nil
+    check("tevékenység-javaslat: a Munkahely mezőé a mentett helyszínek", sm.workplaceSuggestions == sm.places)
+    UserDefaults.standard.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
+}
+
+section("Beállítás-fülek és újranyitás")
+do {
+    check("öt kategória, mind más azonosítóval, ikonnal és névvel", SettingsTab.allCases.count == 5 && Set(SettingsTab.allCases.map { $0.rawValue }).count == 5 && SettingsTab.allCases.allSatisfy { !$0.title.isEmpty && !$0.symbol.isEmpty && !$0.help.isEmpty })
+    let ud = UserDefaults.standard
+    let um = AppModel()
+    let host = NSHostingController(rootView: SettingsView().environmentObject(um).environment(\.palette, .blue).frame(width: 440))
+    host.sizingOptions = []
+    let win = NSWindow(contentViewController: host)
+    win.setContentSize(NSSize(width: 470, height: 900))
+    win.makeKeyAndOrderFront(nil)
+    for tab in SettingsTab.allCases {
+        ud.set(tab.rawValue, forKey: "settings.tab")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    }
+    ud.set("ismeretlen", forKey: "settings.tab")
+    RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    check("minden kategória és az ismeretlen érték is összeomlás nélkül kirajzolódik", true)
+    ud.removeObject(forKey: "settings.tab")
+    win.orderOut(nil)
+    let all = NSHostingController(rootView: SettingsView(showAllTabs: true).environmentObject(um).environment(\.palette, .blue).frame(width: 440))
+    all.sizingOptions = []
+    let w2 = NSWindow(contentViewController: all)
+    w2.setContentSize(NSSize(width: 470, height: 900)); w2.makeKeyAndOrderFront(nil)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    check("az összes kategória egyben is kirajzolódik (útmutató-képekhez)", true)
+    w2.orderOut(nil)
+
+    // a menüsori ablak bezárásakor számlálót léptet (a nézet ebből tudja, hogy a rögzítő oldalt kell mutatnia)
+    let pc = PanelController.shared
+    let menuWin = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
+    pc.menuWindow = menuWin
+    let before = pc.menuHiddenCount
+    menuWin.makeKeyAndOrderFront(nil)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+    check("megnyitáskor a számláló nem változik", pc.menuHiddenCount == before)
+    menuWin.orderOut(nil)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+    check("bezáráskor a számláló növekszik", pc.menuHiddenCount == before + 1, "\(pc.menuHiddenCount) / \(before)")
+    pc.menuWindow = nil
+}
+
+section("Javaslatlista: kattintás és kinézet")
+do {
+    final class Box: ObservableObject { @Published var text = "ügy"; @Published var picked: String? }
+    struct Harness: View {
+        @ObservedObject var box: Box
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                SuggestTextField(prompt: "Tevékenység", text: $box.text, candidates: { ["Ügyintézés", "Ügyfélszolgálat", "Értekezlet"] }, forceOpen: true)
+                Text("Ez a mező alatti szöveg").font(.caption)
+                Button("Egy alatta lévő gomb") {}
+                Spacer()
+            }
+            .padding(20).frame(width: 320, height: 220, alignment: .topLeading)
+            .environment(\.palette, .blue)
+        }
+    }
+    UserDefaults.standard.removeObject(forKey: "suggest.enabled")
+    let box = Box()
+    let h = NSHostingController(rootView: Harness(box: box))
+    h.sizingOptions = []
+    let w = NSWindow(contentViewController: h)
+    w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .white
+    w.setContentSize(NSSize(width: 320, height: 220))
+    w.makeKeyAndOrderFront(nil)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+    if let dir = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"], let cv = w.contentView, let rep = cv.bitmapImageRepForCachingDisplay(in: cv.bounds) {
+        cv.cacheDisplay(in: cv.bounds, to: rep)
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/javaslat.png"))
+    }
+    // kattintás az első javaslatra (a mező alatt, a mező területén kívül): ablak-koordinátában, bal alsó origóval
+    func click(at topLeft: NSPoint) {
+        let p = NSPoint(x: topLeft.x, y: 220 - topLeft.y)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            if let ev = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                w.sendEvent(ev)
+            }
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+    }
+    // a mező kb. y 20–42, az első javaslat sora kb. y 46–66
+    click(at: NSPoint(x: 60, y: 57))
+    check("a javaslatlistára (a mező területén kívül) lehet kattintani: elfogadja a javaslatot", box.text == "Ügyintézés", "\(box.text)")
+    w.orderOut(nil)
+}
+
+do {
+    // szemrevételezéshez (képpé renderelve, ha az OTS_RENDER_DIR meg van adva): fülsor, egy kategória, a típusmező
+    if let dir = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"] {
+        let ud = UserDefaults.standard
+        ud.set(tmp + "/vis/bejegyzesek.csv", forKey: "dataFile")
+        let vm = AppModel()
+        func shot(_ view: AnyView, _ size: NSSize, _ name: String) {
+            let h = NSHostingController(rootView: view)
+            h.sizingOptions = []
+            let w = NSWindow(contentViewController: h)
+            w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .white
+            w.setContentSize(size); w.makeKeyAndOrderFront(nil)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            if let cv = w.contentView, let rep = cv.bitmapImageRepForCachingDisplay(in: cv.bounds) {
+                cv.cacheDisplay(in: cv.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/" + name + ".png"))
+            }
+            w.orderOut(nil)
+        }
+        ud.set("recording", forKey: "settings.tab")
+        shot(AnyView(VStack(spacing: 8) { SettingsTabBar(); SettingsView() }.padding(14).frame(width: 440, alignment: .top).environmentObject(vm).environment(\.palette, .blue)), NSSize(width: 470, height: 900), "beallitasok-rogzites")
+        ud.set("data", forKey: "settings.tab")
+        shot(AnyView(VStack(spacing: 8) { SettingsTabBar(); SettingsView() }.padding(8).frame(width: 340, alignment: .top).environmentObject(vm).environment(\.palette, .green).environment(\.compact, true)), NSSize(width: 360, height: 500), "beallitasok-kompakt")
+        ud.removeObject(forKey: "settings.tab")
+        vm.selectedType = .meeting; vm.workplace = "Győr"
+        shot(AnyView(FieldsView().environmentObject(vm).environment(\.palette, .blue).frame(width: 440).padding(14)), NSSize(width: 470, height: 200), "urlap-tipusmezo")
+        ud.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
+    }
+}
+
 // MARK: Menüsori számláló: állandó szélesség
 
 section("Menüsori számláló")

@@ -2,7 +2,7 @@
 
 Verzió: {{VERZIO}} · Mac (macOS 14 vagy újabb)
 
-> **Mi új ebben a verzióban?** Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
+> **Mi új ebben a verzióban?** Az 1.5.4: a **Beállítások öt fülre** van osztva (Megjelenés, Rögzítés, Naptár, OTS, Adatok), a menüsori ablak bezárása után újranyitáskor a **rögzítő oldal** jön, és a mezők **javaslatokat** adnak gépelés közben (például „ügy” → Ügyintézés). Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
 
 > **Röviden:** menüsori időnapló lelkészeknek és gyülekezeti munkatársaknak. Rögzíted, mit csináltál és mennyi ideig, az alkalmazás összesít, figyelmeztet, ha lemaradtál, és ebből tölti ki az MI-asszisztens (Claude, ChatGPT/Codex vagy az ingyenes Antigravity CLI) az OTS Havi munkajelentőjét, a Költségelszámolást és a létszámjelentőt. Minden adat a saját gépeden marad.
 
@@ -57,6 +57,8 @@ Mindhárom rögzítési módban (Időzítő, Kézi bevitel, Pomodoro, valamint a
 | **Tevékenység** | Rövid leírás arról, mit csináltál. **Csak az Utazásnál kötelező**, mert a Költségelszámolás „Tevékenység” oszlopát kizárólag az Utazás bejegyzések Tevékenységéből tölti ki az asszisztens (más kategória szövegét nem veszi át). Minden másnál opcionális, csak referencia neked. |
 
 **Rögzítés után az űrlap kiürül**, így nem kell kitörölnöd a következő bejegyzés előtt.
+
+**Javaslatok gépelés közben.** A Munkahely, a Kiindulás, a Cél, a Tevékenység típusa és a Tevékenység mezőben gépelés közben a mező alatt javaslatok jelennek meg (a mentett helyszínekből, a típusokból és a korábbi tevékenységekből), ékezet- és kisbetű-függetlenül: az „ügy” és az „ugy” is az Ügyintézés-t adja. **↓ és ↑** lépked a javaslatok között, **Enter** vagy **Tab** elfogadja, **Esc** bezárja; kattintással is választhatsz. A Cél mezőben (több hely) az éppen írt helyre ad javaslatot, cím (utca, házszám) közben nem. A Tevékenység típusa mezőnél a nyíl a teljes csoportosított listát nyitja. Ha nem szeretnéd, a **Beállítások › Rögzítés** alatt kikapcsolható (a típus mező ilyenkor a régi legördülő lista).
 
 ### Utazás: Kiindulás és Cél
 
@@ -202,6 +204,14 @@ A Beállítások › *Megjelenés* részben:
 ![Borostyán színséma](kepek/15-szinseme-amber.png)
 
 ## 11. Beállítások
+
+A Beállítások (fogaskerék) **öt fülre** van osztva, a lap tetején: **Megjelenés**, **Rögzítés**, **Naptár** (a Mac Naptár szinkronja), **OTS** és **Adatok**. Az utoljára megnyitott fül megmarad. Ha a menüsori ablakot bezárod (az ikonra vagy az ablakon kívülre kattintva), **újranyitáskor a rögzítő oldal** jön, nem a Beállítások. Az alábbi képek az összes kategóriát egymás alatt mutatják.
+
+- **Megjelenés:** színséma, világos/sötét mód, menüsori ikonok, jelzőhangok.
+- **Rögzítés:** székhely és helyszínek, kategóriák és színek, javaslatok gépelés közben, a Naptár fül munkanap-sávja és a hét kezdőnapja, emlékeztetők és jelzések.
+- **Naptár:** a Mac Naptár szinkronja (15. fejezet).
+- **OTS:** gyülekezeti létszámjelentő, skill és kézi felvitel.
+- **Adatok:** adatfájl, indítás bejelentkezéskor, útmutató, törlés (alapállapot).
 
 ![Beállítások (1): megjelenés, ikonok, hangok](kepek/12a-beallitasok.png)
 
@@ -472,6 +482,11 @@ Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy tele
 ## 17. Változásnapló
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
+
+### 1.5.4
+- **Beállítások fülekre osztva:** Megjelenés, Rögzítés, Naptár, OTS, Adatok (a fülsor az app többi fülével egyező stílusú, az utolsó fül megmarad).
+- **Újranyitáskor a rögzítő oldal:** ha a menüsori ablakot bezárod a Beállításokban (ikonra vagy kívülre kattintva), újranyitáskor a rögzítő oldal jön. A leválasztott ablakra ez nem vonatkozik.
+- **Javaslatok gépelés közben:** Munkahely, Kiindulás, Cél (az éppen írt helyre), Tevékenység típusa (gépelve szűr, a nyíl a teljes listát nyitja) és Tevékenység (a korábbi tevékenységekből); ékezet- és kisbetű-független. ↓/↑, Enter, Tab, Esc és kattintás. Beállítások › Rögzítés alatt kikapcsolható.
 
 ### 1.5.3
 - **A menüsori számláló javítása (az 1.5.2 hibája).** Az 1.5.2-ben a számláló egyáltalán nem látszott a menüsorban (csak az ikon): a menüsori elem a címkében csak egy képet fogad el, a második képet eldobta. Most, amikor idő látszik, az ikon és az idő **egyetlen képként** jelenik meg, szélességazonos számjegyekkel. Ezt a futó alkalmazás menüsori elemén mértük: a szélessége végig állandó (korábban 73 és 76 pont között ugrált); csak egy óra után változik egyszer (a `h:mm:ss` alak hosszabb).

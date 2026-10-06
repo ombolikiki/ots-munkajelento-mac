@@ -125,6 +125,7 @@ final class AppModel: ObservableObject {
             "target.hours": 8,
             "reminder.enabled": true, "reminder.days": 7,
             "attendance.enabled": false,
+            "suggest.enabled": true,
             "palette": "blue", "appearance": "system"
         ])
         workplace = ud.string(forKey: "draft.workplace") ?? ""
@@ -277,6 +278,18 @@ final class AppModel: ObservableObject {
     }
 
     var workplaceSuggestions: [String] { places }
+
+    /// A Tevékenység mező javaslatai: a korábban rögzített tevékenységek (legutóbbiak elöl, az éppen kiválasztott típusúak előbb).
+    func activitySuggestions() -> [String] {
+        var seen = Set<String>(), same: [String] = [], other: [String] = []
+        for e in entries.reversed() {
+            let a = e.activity.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !a.isEmpty, seen.insert(CalendarParser.fold(a)).inserted else { continue }
+            if let t = selectedType, e.type == t.rawValue { same.append(a) } else { other.append(a) }
+            if seen.count >= 300 { break }
+        }
+        return same + other
+    }
 
     // MARK: Helyszínek
     private static let wholeDayNames: Set<String> = ["SZABADNAP", "SZABADSÁG", "MUNKASZÜNETI NAP"]

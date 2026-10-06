@@ -2,7 +2,88 @@ import SwiftUI
 import AppKit
 import ServiceManagement
 
+/// A Beállítások kategóriái (a fülek a lap tetején; az utolsó választás megmarad).
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case appearance, recording, calendar, ots, data
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .appearance: return "Megjelenés"
+        case .recording: return "Rögzítés"
+        case .calendar: return "Naptár"
+        case .ots: return "OTS"
+        case .data: return "Adatok"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .appearance: return "paintbrush"
+        case .recording: return "slider.horizontal.3"
+        case .calendar: return "calendar.badge.clock"
+        case .ots: return "tablecells"
+        case .data: return "externaldrive"
+        }
+    }
+
+    var help: String {
+        switch self {
+        case .appearance: return "Megjelenés: színséma, ikonok, hangok"
+        case .recording: return "Rögzítés: helyszínek, kategóriák, javaslatok, naptár-nézet, emlékeztetők"
+        case .calendar: return "Naptár-szinkron (Mac Naptár)"
+        case .ots: return "OTS: létszámjelentő, skill, kézi felvitel"
+        case .data: return "Adatok: adatfájl, indítás, törlés"
+        }
+    }
+}
+
+/// A Beállítások fülsora (az app többi fülével egyező stílusban).
+struct SettingsTabBar: View {
+    @Environment(\.palette) private var palette
+    @Environment(\.compact) private var compact
+    @AppStorage("settings.tab") private var tabRaw = SettingsTab.appearance.rawValue
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(SettingsTab.allCases) { tab in
+                let selected = tabRaw == tab.rawValue
+                Button { tabRaw = tab.rawValue } label: {
+                    Group {
+                        if compact {
+                            VStack(spacing: 1) {
+                                Image(systemName: tab.symbol)
+                                Text(tab.title).font(.system(size: 8.5)).lineLimit(1).minimumScaleFactor(0.7)
+                            }
+                        } else {
+                            Label(tab.title, systemImage: tab.symbol).lineLimit(1).minimumScaleFactor(0.75)
+                        }
+                    }
+                    .font(.system(size: 11.5, weight: selected ? .semibold : .regular))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, compact ? 3 : 6)
+                    .foregroundStyle(selected ? Color.white : Color.primary.opacity(0.75))
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(selected ? AnyShapeStyle(palette.gradient) : AnyShapeStyle(Color.clear))
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .help(tab.help)
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Color.primary.opacity(0.07)))
+    }
+}
+
 struct SettingsView: View {
+    /// Igaz: az összes kategória egymás alatt (csak az útmutató képernyőképeihez).
+    var showAllTabs = false
+    init(showAllTabs: Bool = false) { self.showAllTabs = showAllTabs }
+
+    @AppStorage("settings.tab") private var tabRaw = SettingsTab.appearance.rawValue
     @Environment(\.palette) private var palette
     @EnvironmentObject var m: AppModel
     @AppStorage("menuIcon") private var mainIcon = "adventist"
@@ -38,20 +119,51 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if showAllTabs {
+                ForEach(SettingsTab.allCases) { tabContent($0) }
+            } else {
+                tabContent(SettingsTab(rawValue: tabRaw) ?? .appearance)
+            }
+        }
+    }
+
+    /// Egy kategória kártyái.
+    @ViewBuilder private func tabContent(_ tab: SettingsTab) -> some View {
+        switch tab {
+        case .appearance:
             appearanceCard
             iconsCard
             soundsCard
-            calendarCard
-            CalendarSyncCard(sync: m.calendarSync)
-            remindersCard
+        case .recording:
             placesCard
             categoriesCard
+            suggestCard
+            calendarCard
+            remindersCard
+        case .calendar:
+            CalendarSyncCard(sync: m.calendarSync)
+        case .ots:
             attendanceCard
-            dataCard
             skillCard
+        case .data:
+            dataCard
             otherCard
             dangerCard
         }
+    }
+
+    // MARK: Javaslatok gépelés közben
+
+    @AppStorage("suggest.enabled") private var suggestOn = true
+
+    private var suggestCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Javaslatok gépelés közben").font(.subheadline.weight(.semibold))
+            Toggle("Javaslatok a mezők alatt", isOn: $suggestOn)
+            Text("A Munkahely, a Kiindulás, a Cél, a Tevékenység típusa és a Tevékenység mezőben gépelés közben javaslatokat kapsz a mentett helyszínekből, a típusokból és a korábbi tevékenységekből (például „ügy” → Ügyintézés). ↓ és ↑ lépked, Enter vagy Tab elfogadja, Esc bezárja. Kikapcsolva a Tevékenység típusa a régi legördülő lista.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }.card()
     }
 
     // MARK: Ikonok

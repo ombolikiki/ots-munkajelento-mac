@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.5.3)
+# OTS Munkajelentő Tracker (1.5.4)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -32,6 +32,12 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.5.4
+
+- **Beállítások fülekre osztva** (Megjelenés, Rögzítés, Naptár, OTS, Adatok; `SettingsTab`, `SettingsTabBar`), az utolsó fül megmarad.
+- **Újranyitáskor a rögzítő oldal:** a menüsori ablak bezárásakor (látható → eltűnt átmenet, `PanelController.menuHiddenCount`) a Beállítások visszaáll a rögzítő oldalra.
+- **Javaslatok gépelés közben** (`Suggest.swift`: `SuggestTextField`, `TypeSuggestField`): helyszínek, típusok, korábbi tevékenységek; ékezet- és kisbetű-független; a lista a tartalomra takar rá (nem növeli az ablak magasságát). Beállítások › Rögzítés alatt kapcsolható (`suggest.enabled`).
 
 ### 1.5.3
 

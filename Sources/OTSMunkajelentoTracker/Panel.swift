@@ -8,6 +8,8 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     @Published var isOpen = false
     /// Mindig legfelül marad-e (kitűzve).
     @Published var isPinned = true
+    /// Hányszor tűnt el a menüsori lenyíló ablak (bezárták): a nézet ebből tudja, hogy újranyitáskor a rögzítő oldalt kell mutatnia.
+    @Published var menuHiddenCount = 0
 
     private var panel: NSPanel?
     var window: NSWindow? { panel }
@@ -16,13 +18,25 @@ final class PanelController: NSObject, ObservableObject, NSWindowDelegate {
     weak var menuWindow: NSWindow? {
         didSet {
             guard menuWindow !== oldValue else { return }
+            menuWasVisible = menuWindow?.isVisible ?? false
             visibilityObservation = menuWindow?.observe(\.isVisible, options: [.new]) { [weak self] window, change in
+                guard let self = self else { return }
+                if change.newValue == false {
+                    // csak a látható -> eltűnt átmenet számít bezárásnak (megnyitáskor is érkezhet „nem látható” jelzés)
+                    DispatchQueue.main.async {
+                        guard self.menuWasVisible, !window.isVisible else { return }
+                        self.menuWasVisible = false
+                        self.menuHiddenCount += 1
+                    }
+                    return
+                }
                 guard change.newValue == true else { return }
-                DispatchQueue.main.async { self?.menuWindowAppeared(window) }
+                DispatchQueue.main.async { self.menuWasVisible = true; self.menuWindowAppeared(window) }
             }
         }
     }
     private var visibilityObservation: NSKeyValueObservation?
+    private var menuWasVisible = false
     private var keyObserver: NSObjectProtocol?
 
     private func menuWindowAppeared(_ w: NSWindow) {

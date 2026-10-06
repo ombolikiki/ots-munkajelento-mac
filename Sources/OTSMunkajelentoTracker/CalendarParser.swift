@@ -311,6 +311,9 @@ enum CalendarParser {
     /// Az utcára, házszámra utaló szavak (kisbetű- és ékezetfüggetlenül): ezekből tudjuk, hogy a vesszők közti rész cím, nem újabb település.
     private static let streetWords: Set<String> = ["ut", "utca", "u", "ter", "korut", "krt", "setany", "koz", "dulo", "sor", "fasor",
                                                    "rakpart", "liget", "major", "emelet", "em", "ajto", "fszt", "lepcsohaz", "epulet", "ep", "hrsz"]
+    /// Utcára, házszámra utaló szöveg-e (a javaslatoknál nem ajánlunk településnevet ilyen szó közben).
+    static func looksLikeStreet(_ token: String) -> Bool { isStreetLike(token) }
+
     /// A cím folytatása (az utcarész után): emelet, ajtó stb.; ezek nem új cím.
     private static let continuationWords: Set<String> = ["emelet", "em", "ajto", "fszt", "lepcsohaz", "epulet", "ep", "hrsz"]
 
