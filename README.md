@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.5.2)
+# OTS Munkajelentő Tracker (1.5.3)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -32,6 +32,10 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.5.3
+
+- **A menüsori számláló javítása:** az 1.5.2-ben a számláló nem látszott (a menüsori elem a címkében csak egy képet fogad el). Most az ikon és az idő egyetlen képként jelenik meg (`MenuBarClock`), szélességazonos számjegyekkel; a futó alkalmazás menüsori elemén mérve a szélesség végig állandó (korábban 73–76 pont között ugrált). Mérőeszköz: `scripts/status-item-dump.sh`.
 
 ### 1.5.2
 

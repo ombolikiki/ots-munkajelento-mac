@@ -473,6 +473,9 @@ Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy tele
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
 
+### 1.5.3
+- **A menüsori számláló javítása (az 1.5.2 hibája).** Az 1.5.2-ben a számláló egyáltalán nem látszott a menüsorban (csak az ikon): a menüsori elem a címkében csak egy képet fogad el, a második képet eldobta. Most, amikor idő látszik, az ikon és az idő **egyetlen képként** jelenik meg, szélességazonos számjegyekkel. Ezt a futó alkalmazás menüsori elemén mértük: a szélessége végig állandó (korábban 73 és 76 pont között ugrált); csak egy óra után változik egyszer (a `h:mm:ss` alak hosszabb).
+
 ### 1.5.2
 - **A menüsori számláló nem ugrál (javítás).** Az 1.5.1 után a számok még mozogtak, mert a menüsori elem a szöveget a saját, arányos számjegyű betűtípusával rajzolta újra. Most az időt az alkalmazás maga rajzolja ki egy képre (szélességazonos számjegyekkel, rögzített szélességgel), így minden számjegy ugyanazon a helyen áll.
 

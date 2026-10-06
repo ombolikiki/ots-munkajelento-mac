@@ -508,6 +508,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// A menüsorban látszó idő: futó időzítőnél az eltelt idő, Pomodoro közben (ha be van kapcsolva) a hátralévő idő; egyébként nil.
+    var menuClockText: String? {
+        if stopwatchRunning { return Fmt.clock(stopwatchElapsed) }
+        let showPomo = (ud.object(forKey: "menu.showPomoTime") as? Bool) ?? true
+        if pomodoroActive && showPomo { return Fmt.clock(pomoRemaining) }
+        return nil
+    }
+
     private func handleTerminate() {
         // A futó Pomodoro-pomo ne vesszen el kilépéskor. Az időzítő állapota
         // magától megmarad (timer.start), és induláskor folytatódik.

@@ -5,6 +5,8 @@ import AppKit
 struct OTSMunkajelentoTrackerApp: App {
     @StateObject private var model = AppModel()
 
+    init() { StatusItemDump.scheduleIfRequested() }
+
     var body: some Scene {
         MenuBarExtra {
             ContentView()
@@ -29,39 +31,105 @@ enum MenuImages {
     }()
 }
 
-/// A menüsori számláló képként kirajzolva. A menüsori elem a SwiftUI szövegét a saját betűtípusával (arányos számjegyekkel) rajzolja újra,
-/// ezért a számok másodpercenként ugráltak. Itt a szöveget mi rajzoljuk ki egy sablonképre (a rendszer a menüsor színére festi),
-/// szélességazonos számjegyű betűtípussal és rögzített szélességgel: minden számjegy ugyanazon a helyen áll, és a kép mérete sosem változik
-/// az azonos hosszú időnél (az óó:pp:mm alak egy óra után lesz egyszer szélesebb).
-enum MenuClockImage {
+/// A menüsori számláló: állandó szélességű, nem ugrál.
+///
+/// A SwiftUI a menüsori címkét **egy képre és egy szövegre** bontja, a szöveget pedig mindig a rendszer saját, arányos számjegyű
+/// betűtípusával adja át a menüsori gombnak (a `font` és a `monospacedDigit` módosítót eldobja), a gomb szélességét ebből méri;
+/// második kép nem fér a címkébe, és a gomb címét utólag a rendszer visszaállítja. Mért eredmény: az elem szélessége másodpercenként
+/// 73 és 76 pont között ugrált. Megoldás: ha idő látszik, a címke **egyetlen kép**, amelyben az ikont és az időt mi rajzoljuk ki
+/// szélességazonos számjegyű betűtípussal, így minden számjegy ugyanazon a helyen áll, és a kép mérete sosem változik.
+enum MenuBarClock {
     static let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .regular)
     static let height: CGFloat = 17
+    static let gap: CGFloat = 4
+    static let scale: CGFloat = 3
 
-    /// A szöveg szélessége úgy mérve, hogy minden számjegy 0 (a számjegyek szélessége egyforma, így az érték nem számít).
-    static func width(for text: String) -> CGFloat {
+    /// Az idő szélessége úgy mérve, hogy minden számjegy 0 (a számjegyek szélessége egyforma, így az érték nem számít).
+    static func clockWidth(for text: String) -> CGFloat {
         let pattern = String(text.map { $0.isNumber ? Character("0") : $0 })
         return ceil((pattern as NSString).size(withAttributes: [.font: font]).width) + 1
     }
 
-    static func make(_ text: String) -> NSImage {
-        let size = NSSize(width: width(for: text), height: height)
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
-        let image = NSImage(size: size, flipped: false) { rect in
-            let str = text as NSString
-            let h = str.size(withAttributes: attrs).height
-            str.draw(at: NSPoint(x: 0, y: (rect.height - h) / 2), withAttributes: attrs)
-            return true
+    /// Az ikon a rajzoláshoz: (kép, sablon-e). A szimbólum és az Adventista jelkép sablon (a rendszer a menüsor színére festi),
+    /// az emoji színes.
+    private static func iconImage(_ icon: IconChoice) -> (NSImage?, template: Bool) {
+        switch icon.kind {
+        case .symbol(let name):
+            let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+            return (NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(cfg), true)
+        case .logo:
+            return (MenuImages.adventist, true)
+        case .emoji:
+            return (nil, false)
         }
-        image.isTemplate = true
-        return image
     }
-}
 
-struct MenuClockText: View {
-    let text: String
-    var body: some View {
-        Image(nsImage: MenuClockImage.make(text))
-            .accessibilityLabel(text)
+    /// A menüsor szövegének színe a menüsori gomb megjelenése szerint (csak a színes, nem sablon változathoz kell).
+    static func statusTextColor() -> NSColor {
+        let appearance = statusButton()?.effectiveAppearance ?? NSApp.effectiveAppearance
+        var color = NSColor.black
+        appearance.performAsCurrentDrawingAppearance { color = NSColor.controlTextColor.usingColorSpace(.sRGB) ?? .black }
+        return color
+    }
+
+    static func statusButton() -> NSStatusBarButton? {
+        func find(_ v: NSView) -> NSStatusBarButton? {
+            if let b = v as? NSStatusBarButton { return b }
+            for s in v.subviews { if let b = find(s) { return b } }
+            return nil
+        }
+        for w in NSApp.windows where StatusMenuController.isStatusItemWindow(w) {
+            if let cv = w.contentView, let b = find(cv) { return b }
+        }
+        return nil
+    }
+
+    /// Az ikon és az idő egyetlen képen. Sablonkép, ha az ikon szimbólum vagy jelkép (fekete rajz, a rendszer festi); emoji ikonnál színes
+    /// kép, az idő `textColor` színű.
+    static func make(icon: IconChoice, text: String, textColor: NSColor) -> NSImage {
+        let (iconImg, isTemplate) = iconImage(icon)
+        let iconText = { () -> String? in if case .emoji(let e) = icon.kind { return e }; return nil }()
+        let emojiFont = NSFont.systemFont(ofSize: 14)
+        var iconWidth: CGFloat = 0
+        if let img = iconImg {
+            let h = min(height, img.size.height)
+            iconWidth = ceil(img.size.width * h / max(1, img.size.height))
+        } else if let e = iconText {
+            iconWidth = ceil((e as NSString).size(withAttributes: [.font: emojiFont]).width)
+        }
+        let clockW = clockWidth(for: text)
+        let width = iconWidth + (iconWidth > 0 ? gap : 0) + clockW
+        let wpx = Int(ceil(width * scale)), hpx = Int(height * scale)
+        let result = NSImage(size: NSSize(width: width, height: height))
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: wpx, pixelsHigh: hpx, bitsPerSample: 8, samplesPerPixel: 4,
+                                         hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+              let ctx = NSGraphicsContext(bitmapImageRep: rep) else { return result }
+        rep.size = result.size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = ctx
+        ctx.cgContext.scaleBy(x: scale, y: scale)
+        let ink: NSColor = isTemplate ? .black : textColor
+        if let img = iconImg {
+            let h = min(height, img.size.height)
+            let rect = NSRect(x: 0, y: (height - h) / 2, width: iconWidth, height: h)
+            // a sablonképet feketére festjük (a rendszer a sablonkép alakját veszi, a színét maga adja)
+            let tinted = img.copy() as? NSImage ?? img
+            tinted.lockFocus()
+            NSColor.black.set()
+            NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)
+            tinted.unlockFocus()
+            tinted.draw(in: rect)
+        } else if let e = iconText {
+            let h = (e as NSString).size(withAttributes: [.font: emojiFont]).height
+            (e as NSString).draw(at: NSPoint(x: 0, y: (height - h) / 2), withAttributes: [.font: emojiFont])
+        }
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: ink]
+        let th = (text as NSString).size(withAttributes: attrs).height
+        (text as NSString).draw(at: NSPoint(x: iconWidth + (iconWidth > 0 ? gap : 0), y: (height - th) / 2), withAttributes: attrs)
+        NSGraphicsContext.restoreGraphicsState()
+        result.addRepresentation(rep)
+        result.isTemplate = isTemplate
+        return result
     }
 }
 
@@ -71,14 +139,16 @@ struct MenuLabel: View {
     @AppStorage("menuIcon.pomo") private var pomoIcon = "tomato"
     @AppStorage("menuIcon.break") private var breakIcon = "cup"
     @AppStorage("menuIcon.reminder") private var reminderIcon = "warning"
-    @AppStorage("menu.showPomoTime") private var showPomoTime = true
 
     var body: some View {
-        HStack(spacing: 4) {
+        if let text = m.menuClockText {
+            // idő látszik: egyetlen kép (ikon és idő együtt, állandó szélességgel)
+            let isEmoji: Bool = { if case .emoji = choice.kind { return true }; return false }()
+            Image(nsImage: MenuBarClock.make(icon: choice, text: text, textColor: MenuBarClock.statusTextColor()))
+                .renderingMode(isEmoji ? .original : .template)
+                .accessibilityLabel(text)
+        } else {
             IconView(choice: choice)
-            if let text = text {
-                MenuClockText(text: text)
-            }
         }
     }
 
@@ -92,11 +162,5 @@ struct MenuLabel: View {
             if !m.stopwatchRunning, m.reminderActive { return IconSets.choice(reminderIcon, in: IconSets.reminder) }
             return IconSets.choice(mainIcon, in: IconSets.main)
         }
-    }
-
-    private var text: String? {
-        if m.stopwatchRunning { return Fmt.clock(m.stopwatchElapsed) }
-        if m.pomodoroActive && showPomoTime { return Fmt.clock(m.pomoRemaining) }
-        return nil
     }
 }

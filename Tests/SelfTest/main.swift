@@ -394,40 +394,26 @@ if ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"] != nil, ProcessInfo.p
 
 section("Menüsori számláló")
 do {
+    let icons: [(String, IconChoice)] = [("jelkép", IconSets.main[5]), ("szimbólum", IconSets.main[0]), ("paradicsom (emoji)", IconSets.pomoWork[0]), ("kávé (emoji)", IconSets.pomoBreak[1]), ("csésze (szimbólum)", IconSets.pomoBreak[0]), ("figyelmeztetés", IconSets.reminder[0])]
     let samples = ["00:00", "01:11", "08:08", "11:11", "12:34", "25:00", "47:58", "58:59", "59:59", "99:99"]
-    check("az óó:pp alakok képének mérete minden számjegyre azonos", Set(samples.map { MenuClockImage.make($0).size.width }).count == 1 && Set(samples.map { MenuClockImage.make($0).size.height }).count == 1)
-    let longSamples = ["1:00:00", "1:11:11", "2:08:08", "9:59:59"]
-    check("a h:mm:ss alakok mérete (azonos hosszra) azonos", Set(longSamples.map { MenuClockImage.make($0).size.width }).count == 1)
-    check("a hosszabb alak szélesebb (egyszer vált, egy óra után)", MenuClockImage.width(for: "1:00:00") > MenuClockImage.width(for: "59:59"))
-    check("a kép sablonkép (a menüsor színére festődik)", MenuClockImage.make("12:34").isTemplate)
-    if let dir = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"] {
-        // szemrevételezéshez: négy különböző szám egymás alatt, 4x nagyításban, fehér háttéren
-        let rows = ["00:00", "11:11", "47:58", "59:59", "1:08:47"]
-        let scale: CGFloat = 4
-        let wmax = rows.map { MenuClockImage.make($0).size.width }.max() ?? 40
-        let hh = MenuClockImage.height * CGFloat(rows.count)
-        if let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int((wmax + 8) * scale), pixelsHigh: Int((hh + 8) * scale), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
-           let ctx = NSGraphicsContext(bitmapImageRep: rep) {
-            NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = ctx
-            NSColor.white.setFill(); NSRect(x: 0, y: 0, width: rep.pixelsWide, height: rep.pixelsHigh).fill()
-            for (i, t) in rows.enumerated() {
-                let img = MenuClockImage.make(t)
-                img.draw(in: NSRect(x: 4 * scale, y: (4 + MenuClockImage.height * CGFloat(rows.count - 1 - i)) * scale, width: img.size.width * scale, height: img.size.height * scale))
-            }
-            NSGraphicsContext.restoreGraphicsState()
-            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/menusori-szamlalo.png"))
-        }
+    for (name, ic) in icons {
+        let sizes = Set(samples.map { MenuBarClock.make(icon: ic, text: $0, textColor: .black).size })
+        check("\(name): a kép mérete minden számjegyre azonos (óó:pp)", sizes.count == 1, "\(sizes)")
+        let longSizes = Set(["1:00:00", "1:11:11", "2:08:08", "9:59:59"].map { MenuBarClock.make(icon: ic, text: $0, textColor: .black).size })
+        check("\(name): a h:mm:ss alakok mérete azonos", longSizes.count == 1)
+        check("\(name): a hosszabb alak szélesebb (egyszer vált, egy óra után)", MenuBarClock.make(icon: ic, text: "1:00:00", textColor: .black).size.width > MenuBarClock.make(icon: ic, text: "59:59", textColor: .black).size.width)
     }
-    // kirajzolt képpont-ellenőrzés: a kettőspont és a számjegyek ugyanazon a helyen állnak, bármi is a szám
-    func inkClusters(_ text: String) -> [ClosedRange<Int>] {
-        let img = MenuClockImage.make(text)
+    check("jelkép és szimbólumok: sablonkép (a rendszer a menüsor színére festi)", [0, 1, 4, 5].allSatisfy { MenuBarClock.make(icon: icons[$0].1, text: "12:34", textColor: .black).isTemplate })
+    check("emoji ikon (Pomodoro): színes kép, nem sablon", [2, 3].allSatisfy { !MenuBarClock.make(icon: icons[$0].1, text: "12:34", textColor: .black).isTemplate })
+    check("a kép magassága a menüsori ikoné", MenuBarClock.make(icon: icons[0].1, text: "12:34", textColor: .black).size.height == MenuBarClock.height)
+
+    // képpont-ellenőrzés: a számláló jelei (az ikon után) minden számra ugyanazon a helyen állnak
+    func inkClusters(_ img: NSImage) -> [ClosedRange<Int>] {
         let scale = 4
         let w = Int(img.size.width) * scale, h = Int(img.size.height) * scale
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
               let ctx = NSGraphicsContext(bitmapImageRep: rep) else { return [] }
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = ctx
+        NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = ctx
         img.draw(in: NSRect(x: 0, y: 0, width: w, height: h))
         NSGraphicsContext.restoreGraphicsState()
         var inkCols: [Bool] = []
@@ -445,13 +431,45 @@ do {
         if let s0 = start { out.append(s0...(inkCols.count - 1)) }
         return out
     }
-    let a = inkClusters("11:11"), b2 = inkClusters("00:00"), c = inkClusters("47:58")
-    check("a kirajzolt számláló: öt jel (négy számjegy és a kettőspont)", a.count == 5 && b2.count == 5 && c.count == 5, "\(a.count) \(b2.count) \(c.count)")
-    if a.count == 5, b2.count == 5, c.count == 5 {
-        // a kettőspont (3. jel) közepe minden számra ugyanott van; a számjegyek cellái is ugyanott kezdődnek (±1 képpont a betűforma miatt)
-        func center(_ r: ClosedRange<Int>) -> Double { Double(r.lowerBound + r.upperBound) / 2 }
-        check("a kettőspont helye minden számra azonos", abs(center(a[2]) - center(b2[2])) <= 1 && abs(center(a[2]) - center(c[2])) <= 1, "\(center(a[2])) \(center(b2[2])) \(center(c[2]))")
-        check("az utolsó számjegy helye minden számra azonos (nem ugrik)", abs(center(a[4]) - center(b2[4])) <= 6 && abs(center(a[4]) - center(c[4])) <= 6, "\(center(a[4])) \(center(b2[4])) \(center(c[4]))")
+    for (name, ic) in icons {
+        let a = inkClusters(MenuBarClock.make(icon: ic, text: "11:11", textColor: .black))
+        let b2 = inkClusters(MenuBarClock.make(icon: ic, text: "00:00", textColor: .black))
+        let c = inkClusters(MenuBarClock.make(icon: ic, text: "47:58", textColor: .black))
+        let tail = { (x: [ClosedRange<Int>]) in Array(x.suffix(5)) }
+        check("\(name): a számláló öt jele (négy számjegy, kettőspont) látszik", tail(a).count == 5 && tail(b2).count == 5 && tail(c).count == 5)
+        if tail(a).count == 5, tail(b2).count == 5, tail(c).count == 5 {
+            func center(_ r: ClosedRange<Int>) -> Double { Double(r.lowerBound + r.upperBound) / 2 }
+            check("\(name): a kettőspont helye minden számra azonos", abs(center(tail(a)[2]) - center(tail(b2)[2])) <= 1 && abs(center(tail(a)[2]) - center(tail(c)[2])) <= 1, "\(center(tail(a)[2])) \(center(tail(b2)[2])) \(center(tail(c)[2]))")
+            check("\(name): az utolsó számjegy cellája minden számra azonos (nem ugrik)", abs(center(tail(a)[4]) - center(tail(b2)[4])) <= 6 && abs(center(tail(a)[4]) - center(tail(c)[4])) <= 6)
+        }
+    }
+    check("az idő helyőrzője/értelmezése: a menüsori szöveg órája", AppModel().menuClockText == nil)
+    if let dir = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"] {
+        // szemrevételezéshez: minden ikonfajta, többféle idő, 4x nagyításban, világos és sötét háttéren
+        let rows = icons.flatMap { ic in ["00:00", "47:58", "1:08:47"].map { (ic.1, $0) } }
+        let scale: CGFloat = 4
+        let wmax = rows.map { MenuBarClock.make(icon: $0.0, text: $0.1, textColor: .black).size.width }.max() ?? 40
+        for dark in [false, true] {
+            let hh = MenuBarClock.height * CGFloat(rows.count)
+            if let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int((wmax + 8) * scale), pixelsHigh: Int((hh + 8) * scale), bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+               let ctx = NSGraphicsContext(bitmapImageRep: rep) {
+                NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = ctx
+                (dark ? NSColor(white: 0.12, alpha: 1) : NSColor.white).setFill(); NSRect(x: 0, y: 0, width: rep.pixelsWide, height: rep.pixelsHigh).fill()
+                for (i, r) in rows.enumerated() {
+                    let img = MenuBarClock.make(icon: r.0, text: r.1, textColor: dark ? .white : .black)
+                    let rect = NSRect(x: 4 * scale, y: (4 + MenuBarClock.height * CGFloat(rows.count - 1 - i)) * scale, width: img.size.width * scale, height: img.size.height * scale)
+                    if img.isTemplate && dark {
+                        // sablonkép sötét menüsoron: fehérre festve
+                        let t = img.copy() as? NSImage ?? img
+                        t.lockFocus(); NSColor.white.set(); NSRect(origin: .zero, size: t.size).fill(using: .sourceAtop); t.unlockFocus()
+                        t.draw(in: rect)
+                    } else { img.draw(in: rect) }
+                }
+                NSGraphicsContext.restoreGraphicsState()
+                try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + (dark ? "/menusori-szamlalo-sotet.png" : "/menusori-szamlalo.png")))
+            }
+        }
     }
 }
 
