@@ -1167,7 +1167,7 @@ do {
     let plain = Entry(id: UUID(), date: "2026-10-01", start: nil, end: nil, durationSeconds: 3600, workplace: "Győr", type: "MEETING", typeLabel: "Értekezlet", unit: "ora", quantity: nil, activity: "", source: "manual")
     let b2 = try? CSV.decode(CSV.encode([plain])).entries
     check("CSV: cím nélküli bejegyzés változatlan", b2?.first?.address == nil && b2?.first?.calendarID == nil)
-    check("CSV: a fejléc a végén kapja az új oszlopokat", CSV.columns.suffix(5) == ["Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím", "Munkahely helye"] && CSV.columns.count == 20)
+    check("CSV: a fejléc a végén kapja az új oszlopokat", CSV.columns.suffix(7) == ["Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím", "Munkahely helye", "Induló km", "Érkező km"] && CSV.columns.count == 22)
     let old = "Azonosító;Dátum;Kezdés;Vége;Időtartam (mp);Időtartam (óó:pp);Indulás;Munkahely;Érkezés;Típus kód;Típus;Egység;Mennyiség;Tevékenység;Forrás\r\n\(UUID().uuidString);2026-10-01;09:00:00;10:00:00;3600;1:00;;Győr;;MEETING;Értekezlet;ora;;x;manual\r\n"
     let r = try? CSV.decode(Data(old.utf8))
     check("CSV: a régi (új oszlopok nélküli) fájl olvasható", r?.entries.count == 1 && r?.entries.first?.address == nil && r?.entries.first?.calendarID == nil && r?.warnings.isEmpty == true)
@@ -1505,7 +1505,7 @@ do {
     let url3 = OTSManual.mapsURL(r1, useAddress: { _ in false })
     check("Maps: ha egyik cím sem található, a települések", url3 == OTSManual.mapsURL(["Győr", "Tata", "Mór", "Győr"]))
     let rows = OTSManual.costRows(entries: [e1], year: 2026, month: 10, home: "Győr")
-    check("költségelszámolás: az útvonal települések, a térkép címekkel", rows.first?.routes == [["Győr", "Tata", "Mór", "Győr"]] && rows.first?.mapRoutes.first?.compactMap { $0.address }.count == 2 && rows.first?.route == "Győr - Tata - Mór - Győr")
+    check("költségelszámolás: az útvonal települések, a térkép címekkel", rows.first?.points == ["Győr", "Tata", "Mór", "Győr"] && rows.first?.mapPoints.compactMap { $0.address }.count == 2 && rows.first?.route == "Győr - Tata - Mór - Győr")
     // geokódoló: tiszta részek
     check("geokódoló: a találat településével egyezés", AddressChecker.matches(["Győr", "Győr-Moson-Sopron"], settlement: "Győr") && !AddressChecker.matches(["Mór"], settlement: "Győr"))
     check("geokódoló: ékezet- és kisbetű-független", AddressChecker.matches(["GYOR"], settlement: "Győr"))
@@ -1610,7 +1610,7 @@ do {
     am.add(am.makeManualEntry(day: DateUtil.addDays(Date(), -1), durationSeconds: 1800))
     let am2 = AppModel()
     check("mentés és újraolvasás után minden megvan", am2.entries.contains { $0.departureAddress == "Fő út 1., Győr" && $0.address == "Kossuth u. 5., Tata" && $0.workplaceIsDeparture && $0.workplace == "Tata" && $0.departure == "Győr" })
-    check("CSV: új oszlop a végén", CSV.columns.suffix(3) == ["Indulás cím", "Érkezés cím", "Munkahely helye"] && CSV.columns.count == 20)
+    check("CSV: új oszlop a végén", CSV.columns.suffix(5) == ["Indulás cím", "Érkezés cím", "Munkahely helye", "Induló km", "Érkező km"] && CSV.columns.count == 22)
     let oldCsv = "Azonosító;Dátum;Kezdés;Vége;Időtartam (mp);Időtartam (óó:pp);Indulás;Munkahely;Érkezés;Típus kód;Típus;Egység;Mennyiség;Tevékenység;Forrás\r\n\(UUID().uuidString);2026-10-01;;;1800;0:30;Győr;Tata;Győr;TRAVEL;Utazás;ora;;x;manual\r\n"
     let oldDec = try? CSV.decode(Data(oldCsv.utf8))
     check("régi sor: a Munkahely helye üres = Cél", oldDec?.entries.first?.workplaceIsDeparture == false && oldDec?.entries.count == 1)
@@ -1777,12 +1777,21 @@ do {
         tv("2026-11-03", place: "Pápa", dep: "Győr", arr: "Győr", h: 8)
     ]
     let rows = OTSManual.costRows(entries: list, year: 2026, month: 10, home: "Győr")
-    check("költség: csak a hónap utazásai, naponként egy sor", rows.map { $0.key } == ["2026-10-05", "2026-10-07", "2026-10-08"], "\(rows.map { $0.key })")
+    check("költség: csak a hónap utazásai, utanként egy sor (a napon belüli több út külön sor)", rows.map { $0.rowKey } == ["2026-10-05#0", "2026-10-07#0", "2026-10-08#0", "2026-10-08#1"], "\(rows.map { $0.rowKey })")
     check("útvonal: Indulás - Munkahelyek - Érkezés", rows.first?.route == "Győr - Tata - Tatabánya - Győr", rows.first?.route ?? "")
     check("tevékenység: kizárólag az Utazás bejegyzésé (más kategóriából nem veszünk át)", rows.first?.activity == "Út", rows.first?.activity ?? "")
-    check("azonos szomszédos pontok összevonva", rows[1].routes == [["Győr"]] || rows[1].route == "Győr", rows[1].route)
-    check("üres indulás/érkezés: székhely", rows[2].routes.first == ["Győr", "Tata", "Győr"], "\(rows[2].routes)")
-    check("több útvonal egy napon", rows[2].multiple && rows[2].route == "Győr - Tata - Győr ; Győr - Mór - Győr" && rows[2].activity == "Reggel; Délután", rows[2].route)
+    check("azonos szomszédos pontok összevonva", rows[1].points == ["Győr"], rows[1].route)
+    check("üres indulás/érkezés: székhely", rows[2].points == ["Győr", "Tata", "Győr"], "\(rows[2].points)")
+    check("több út egy napon: külön sor, saját útvonallal és tevékenységgel", rows[2].multiple && rows[3].multiple && rows[2].route == "Győr - Tata - Győr" && rows[3].route == "Győr - Mór - Győr" && rows[2].activity == "Reggel" && rows[3].activity == "Délután" && !rows[0].multiple, "\(rows.map { $0.route })")
+    // km-állások a sorban
+    var kmTrip = tv("2026-10-20", place: "Tata", dep: "Győr", arr: "Győr", h: 8, act: "Km")
+    kmTrip.startKm = 1000; kmTrip.endKm = 1060
+    var kmHalf = tv("2026-10-21", place: "Mór", dep: "Győr", arr: "Győr", h: 8, act: "Fél")
+    kmHalf.startKm = 2000
+    let kmRows = OTSManual.costRows(entries: [kmTrip, kmHalf, tv("2026-10-22", place: "Pápa", dep: "Győr", arr: "Győr", h: 8)], year: 2026, month: 10, home: "Győr")
+    check("költség: a km-állások a sorban, az út hossza számolva", kmRows[0].startKm == 1000 && kmRows[0].endKm == 1060 && kmRows[0].kmDriven == 60)
+    check("költség: részleges vagy hiányzó állásból nincs út-hossz", kmRows[1].startKm == 2000 && kmRows[1].endKm == nil && kmRows[1].kmDriven == nil && kmRows[2].startKm == nil && kmRows[2].kmDriven == nil)
+    check("költség: a km megváltozása megváltoztatja az aláírást (a pipa érvénytelenné válik)", kmRows[0].signature != { () -> String in var c = kmRows[0]; c.endKm = 1070; return c.signature }())
     check("Google Maps hivatkozás sorrendben, kódolva", OTSManual.mapsURL(["Győr", "Tatabánya", "Győr"])?.absoluteString == "https://www.google.com/maps/dir/Gy%C5%91r/Tatab%C3%A1nya/Gy%C5%91r")
     check("Google Maps: egy pontból nincs útvonal", OTSManual.mapsURL(["Győr"]) == nil)
     check("üres hónap", OTSManual.costRows(entries: list, year: 2026, month: 9, home: "Győr").isEmpty)
@@ -1963,6 +1972,89 @@ do {
     for k in ["compact", "appearance", "palette", "cal.startHour", "cal.endHour", "cal.weekStart", "attendance.enabled"] { ud.removeObject(forKey: k) }
     AppearanceManager.apply()
     win.orderOut(nil)
+}
+
+// MARK: Kilométeróra (1.6.0)
+
+section("Kilométeróra: mezők, ellenőrzés, javítás, havi összeg")
+do {
+    // értelmezés
+    check("km: üres rendben", AppModel.kmValue("") == (nil, true) && AppModel.kmValue("  ") == (nil, true))
+    check("km: szám, szóközzel is", AppModel.kmValue("123456").value == 123456 && AppModel.kmValue("123 456").value == 123456)
+    check("km: hibás értékek érvénytelenek, nem omlanak össze", ["abc", "-5", "1e99", "inf", "nan", "99999999"].allSatisfy { !AppModel.kmValue($0).valid })
+    // ellenőrzés
+    check("km: rendben ha érkező > induló", AppModel.kmProblem(start: 100, end: 150, previous: 100) == nil)
+    check("km: érkező = induló hibás", AppModel.kmProblem(start: 100, end: 100, previous: nil) != nil)
+    check("km: érkező < induló hibás", AppModel.kmProblem(start: 100, end: 90, previous: nil) != nil)
+    check("km: induló kisebb az előző végénél hibás", AppModel.kmProblem(start: 90, end: nil, previous: 100) != nil)
+    check("km: csak érkező, az előző végénél nem nagyobb: hibás", AppModel.kmProblem(start: nil, end: 100, previous: 100) != nil)
+    check("km: egyik mező sem kötelező", AppModel.kmProblem(start: nil, end: nil, previous: 100) == nil && AppModel.kmProblem(start: 120, end: nil, previous: 100) == nil)
+
+    let kdir = tmp + "/km"
+    try? FileManager.default.removeItem(atPath: kdir)
+    let ukm = UserDefaults.standard
+    ukm.set(kdir + "/bejegyzesek.csv", forKey: "dataFile")
+    ukm.set("Győr", forKey: "home")
+    for k in ["draft.departure", "draft.destination"] { ukm.removeObject(forKey: k) }
+    let km = AppModel()
+    km.clearDraft()
+    km.selectedType = .travel
+    km.activity = "Kiszállás"
+    km.departure = "Győr"; km.destination = "Tata"
+    let t0 = Date().addingTimeInterval(-7200)
+    func rec(_ s: String, _ e: String, at: Date) -> Entry {
+        km.startKmText = s; km.endKmText = e
+        let en = km.makeEntry(start: at, end: at.addingTimeInterval(1800), source: "manual")
+        km.add(en)
+        km.clearDraft()
+        km.selectedType = .travel; km.activity = "Kiszállás"; km.departure = "Győr"; km.destination = "Tata"
+        return en
+    }
+    check("km: üresen is rögzíthető", km.fieldsComplete && km.startKmText == "")
+    let first = rec("", "", at: t0)
+    check("km: üres mezőkkel nincs km a bejegyzésben", first.startKm == nil && first.endKm == nil && km.lastEndKm == nil)
+    let a = rec("1000", "1060", at: t0.addingTimeInterval(-86400 * 2))
+    check("km: a bejegyzés tárolja az állásokat és az út hosszát", a.startKm == 1000 && a.endKm == 1060 && a.kmDriven == 60)
+    check("km: rögzítés után az induló az előző végállással előtöltve, az érkező üres", km.startKmText == "1060" && km.endKmText == "")
+    km.selectedType = .travel; km.activity = "Kiszállás"; km.departure = "Győr"; km.destination = "Tata"
+    km.startKmText = "1000"
+    check("km: az előző végállásnál kisebb induló blokkolja a rögzítést", km.missingFieldsHint?.contains("kisebb") == true && !km.fieldsComplete)
+    km.startKmText = "1060"; km.endKmText = "1050"
+    check("km: az induló alatti érkező blokkolja a rögzítést", km.missingFieldsHint?.contains("nagyobb") == true)
+    km.startKmText = "12a"
+    check("km: nem szám blokkolja a rögzítést", km.missingFieldsHint?.contains("egész szám") == true)
+    km.startKmText = "1060"; km.endKmText = "1100"
+    check("km: helyes értékekkel rögzíthető", km.fieldsComplete)
+    let b = rec("1060", "1100", at: t0.addingTimeInterval(-86400))
+    // nem utazás nem viszi a km-et
+    km.selectedType = .meeting; km.workplace = "Győr"; km.startKmText = "5"; km.endKmText = "9"
+    let nonTravel = km.makeEntry(start: t0, end: t0.addingTimeInterval(600), source: "manual")
+    check("km: nem Utazás bejegyzés nem kap km-et", nonTravel.startKm == nil && nonTravel.endKm == nil)
+    km.clearDraft()
+
+    // havi összeg: csak a két állással rögzített utak
+    check("km: havi összeg és hiányzó állások", { () -> Bool in
+        let r = km.monthKm(containing: Date())
+        let sameMonth = [a, b, first].filter { $0.date.prefix(7) == ymd(Date()).prefix(7) }
+        let want = sameMonth.compactMap { $0.kmDriven }.reduce(0, +)
+        return r.km == want && r.incomplete == sameMonth.filter { $0.kmDriven == nil }.count
+    }())
+
+    // javítás
+    check("km: javítás érvényes értékkel", km.updateKm(b.id, start: "1060", end: "1110") == nil && km.entries.first { $0.id == b.id }?.endKm == 1110)
+    check("km: javítás hibás értékkel nem módosít", km.updateKm(b.id, start: "1060", end: "1000") != nil && km.entries.first { $0.id == b.id }?.endKm == 1110)
+    check("km: javítás az előző végénél kisebb indulóval hibás", km.updateKm(b.id, start: "900", end: "1110") != nil)
+    check("km: javítás üresre törli az állásokat", km.updateKm(first.id, start: "", end: "") == nil)
+    check("km: javítás nem létező bejegyzésre hibát ad", km.updateKm(UUID(), start: "1", end: "2") != nil)
+    // mentés és visszaolvasás, a régi (22 oszlop előtti) fájl is olvasható
+    let reread = AppModel()
+    check("km: az állások a CSV-ből visszaolvashatók", reread.entries.first { $0.id == b.id }?.startKm == 1060 && reread.entries.first { $0.id == b.id }?.endKm == 1110)
+    let oldCSV = "Azonosító;Dátum;Típus kód;Típus;Egység;Munkahely;Tevékenység\r\n;2026-05-04;MEETING;Megbeszélés;ora;Győr;x\r\n"
+    check("km: régi, km-oszlop nélküli fájl olvasható", ((try? CSV.decode(Data(oldCSV.utf8)))?.entries.first).map { $0.startKm == nil && $0.endKm == nil } == true)
+    check("km: a CSV fejlécében a két új oszlop a végén áll", CSV.columns.suffix(2) == ["Induló km", "Érkező km"] && CSV.columns.count == 22)
+    let badCSV = "Dátum;Típus kód;Induló km;Érkező km\r\n2026-05-04;TRAVEL;abc;-4\r\n"
+    check("km: hibás km a CSV-ben üres lesz, a sor megmarad", ((try? CSV.decode(Data(badCSV.utf8)))?.entries.first).map { $0.startKm == nil && $0.endKm == nil } == true)
+    ukm.removeObject(forKey: "home")
 }
 
 print(failures == 0 ? "MINDEN TESZT RENDBEN (\(total) ellenőrzés)" : "HIBÁK: \(failures) / \(total)")

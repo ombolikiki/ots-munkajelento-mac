@@ -215,6 +215,7 @@ struct ContentView: View {
                     AttendanceCard()
                     if !squeezed { MissingDaysView() }
                 }
+                if kmTrack { monthKmLine }
                 if !compact { footer }
             }
             if let err = m.lastError {
@@ -224,6 +225,27 @@ struct ContentView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    @AppStorage("km.track") private var kmTrack = false
+
+    /// A hónap (a kiválasztott napé) autós km-ei összesen; csak ha a Beállításokban be van kapcsolva a km-állások vezetése.
+    private var monthKmLine: some View {
+        let r = m.monthKm(containing: m.selectedDay)
+        let c = DateUtil.components(m.selectedDay)
+        let name = Fmt.monthName(year: c.year, month: c.month)
+        return HStack(spacing: 6) {
+            Image(systemName: "car.fill").font(.caption2)
+            Text("\(name): \(r.km) km")
+                .font(.caption.weight(.medium)).monospacedDigit()
+            if r.incomplete > 0 {
+                Text("(\(r.incomplete) útnál hiányzik a km-állás)").font(.caption2)
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 2)
+        .help("Az Utazás bejegyzések km-óra állásainak különbsége a hónapban (csak a két állással rögzített utak)")
     }
 
     private var header: some View {
@@ -331,6 +353,8 @@ struct ContentView: View {
     private var extraLowerHeight: CGFloat {
         var h: CGFloat = 0
         if m.reminderActive { h += reminderHeight }
+        if kmTrack { h += 22 }                                              // a havi km sora
+        if m.mode != .calendar, m.selectedType?.isTravel == true { h += compact ? 30 : 34 }   // a km-órás sor az Utazás űrlapján
         if m.attendanceEnabled, AttendanceCard.isVisible(m) { h += AttendanceCard.estimatedHeight(m, compact: compact, blocks: attendanceBlocks) + 24 }
         return h
     }
@@ -474,6 +498,25 @@ struct FieldsView: View {
     /// „Oda-vissza” jelölő (alapból bejelölt: a munka után visszatértem a Kiindulásra; kivéve egyirányú út). A mezők fölött a „Munkahely”
     /// választógomb jelöli, hogy a Kiindulás vagy a Cél volt a munkahely (alapból a Cél).
     private var travelRow: some View {
+        VStack(alignment: .leading, spacing: compact ? 4 : 6) {
+            travelPlaceRow
+            kmRow
+        }
+    }
+
+    /// Kilométeróra: induló és érkező állás, mindkettő opcionális (az induló az előző út végállásával előtöltve).
+    private var kmRow: some View {
+        HStack(spacing: 8) {
+            Text("Km-óra").font(.caption).foregroundStyle(.secondary)
+            TextField("induló km", text: $m.startKmText).textFieldStyle(.roundedBorder).frame(maxWidth: .infinity)
+                .help("A kilométeróra állása az út elején (nem kötelező; az előző út végállásával előtöltve)")
+            Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.secondary)
+            TextField("érkező km", text: $m.endKmText).textFieldStyle(.roundedBorder).frame(maxWidth: .infinity)
+                .help("A kilométeróra állása az út végén (nem kötelező)")
+        }
+    }
+
+    private var travelPlaceRow: some View {
         HStack(alignment: .top, spacing: compact ? 6 : 8) {
             travelColumn("Kiindulás", isWorkplace: m.workplaceIsDeparture, select: { m.workplaceIsDeparture = true }) {
                 placeField(text: $m.departure, prompt: "pl. Győr", append: false)
@@ -918,6 +961,11 @@ struct DayListView: View {
     @EnvironmentObject var m: AppModel
     @Environment(\.compact) private var compact
     @State private var pendingDelete: UUID?
+    /// Az éppen javított út (km-állások) és a mezők szövege.
+    @State private var editingKm: UUID?
+    @State private var editStart = ""
+    @State private var editEnd = ""
+    @State private var editError: String?
 
     @Environment(\.detached) private var detached
     private var isToday: Bool { Calendar.current.isDateInToday(m.selectedDay) }
@@ -1051,34 +1099,86 @@ struct DayListView: View {
     }
 
     private func row(_ e: Entry) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            RoundedRectangle(cornerRadius: 2).fill(CategoryColors.color(code: e.type)).frame(width: 4)
-            VStack(alignment: .leading, spacing: 1) {
-                Text([when(e), e.typeLabel].filter { !$0.isEmpty }.joined(separator: "  "))
-                    .font(.caption.weight(.medium))
-                Text(detail(e))
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(3)
-            }
-            Spacer(minLength: 4)
-            Text(amount(e)).font(.caption).monospacedDigit()
-            Button {
-                if pendingDelete == e.id {
-                    m.delete(e.id)
-                    pendingDelete = nil
-                } else {
-                    pendingDelete = e.id
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 8) {
+                RoundedRectangle(cornerRadius: 2).fill(CategoryColors.color(code: e.type)).frame(width: 4)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text([when(e), e.typeLabel].filter { !$0.isEmpty }.joined(separator: "  "))
+                        .font(.caption.weight(.medium))
+                    Text(detail(e))
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(3)
+                    if let km = kmText(e) {
+                        Text(km).font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                    }
                 }
-            } label: {
-                if pendingDelete == e.id {
-                    Text("Biztos?").font(.caption2)
-                } else {
-                    Image(systemName: "trash")
+                Spacer(minLength: 4)
+                Text(amount(e)).font(.caption).monospacedDigit()
+                if e.type == ActivityType.travel.code {
+                    Button {
+                        if editingKm == e.id {
+                            editingKm = nil
+                        } else {
+                            editingKm = e.id
+                            editStart = e.startKm.map(String.init) ?? ""
+                            editEnd = e.endKm.map(String.init) ?? ""
+                            editError = nil
+                        }
+                    } label: { Image(systemName: "pencil") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(editingKm == e.id ? palette.accent : Color.secondary)
+                    .help("Km-állások javítása")
                 }
+                Button {
+                    if pendingDelete == e.id {
+                        m.delete(e.id)
+                        pendingDelete = nil
+                    } else {
+                        pendingDelete = e.id
+                    }
+                } label: {
+                    if pendingDelete == e.id {
+                        Text("Biztos?").font(.caption2)
+                    } else {
+                        Image(systemName: "trash")
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(pendingDelete == e.id ? Theme.stop : Color.secondary)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(pendingDelete == e.id ? Theme.stop : Color.secondary)
+            if editingKm == e.id { kmEditor(e) }
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Az út km-állásainak javítása a sor alatt (mindkettő opcionális; üresen törli az értéket).
+    private func kmEditor(_ e: Entry) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                TextField("induló km", text: $editStart).textFieldStyle(.roundedBorder)
+                Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.secondary)
+                TextField("érkező km", text: $editEnd).textFieldStyle(.roundedBorder)
+                Button("Mentés") {
+                    if let err = m.updateKm(e.id, start: editStart, end: editEnd) {
+                        editError = err
+                    } else {
+                        editingKm = nil
+                        editError = nil
+                    }
+                }
+                .buttonStyle(.plain).font(.caption.weight(.semibold)).foregroundStyle(palette.accent)
+            }
+            if let err = editError {
+                Text(err).font(.caption2).foregroundStyle(Theme.stop).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.leading, 12)
+    }
+
+    /// Utazásnál a km-állások és az út hossza (ha van).
+    private func kmText(_ e: Entry) -> String? {
+        guard e.type == ActivityType.travel.code, e.startKm != nil || e.endKm != nil else { return nil }
+        let s = e.startKm.map(String.init) ?? "?", en = e.endKm.map(String.init) ?? "?"
+        return "km-óra: \(s) → \(en)" + (e.kmDriven.map { " (\($0) km)" } ?? "")
     }
 
     /// Második sor: utazásnál az útvonal (Indulás → Munkahely(ek) → Érkezés), egyébként munkahely · tevékenység.

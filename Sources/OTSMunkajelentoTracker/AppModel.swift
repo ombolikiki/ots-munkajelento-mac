@@ -44,6 +44,9 @@ final class AppModel: ObservableObject {
     @Published var roundTrip = true
     /// Utazásnál: igaz, ha a Kiindulás volt a munkahely, hamis, ha a Cél (alapból a Cél).
     @Published var workplaceIsDeparture = false
+    /// Utazásnál (opcionális): a kilométeróra állása az út elején és végén (szövegként, ahogy a mezőbe írták).
+    @Published var startKmText = ""
+    @Published var endKmText = ""
 
     // MARK: Gyülekezeti létszámjelentő
     @Published var attendance: [AttendanceReport] = []
@@ -253,7 +256,7 @@ final class AppModel: ObservableObject {
             if !missing.isEmpty { return "Kötelező mező: " + missing.joined(separator: ", ") + "." }
             if CalendarParser.parsePlace(departure) == nil { return "Kiindulás: egy hely, település vagy település és cím (például Győr, Fő út 1.)." }
             if CalendarParser.parsePlaces(destination) == nil { return "Cél: települések vesszővel, címmel is (például Tata, Fő út 1., Mór)." }
-            return nil
+            return kmHint
         }
         if trimmedWorkplace.isEmpty { return "A Munkahely mező kötelező." }
         return nil
@@ -269,6 +272,8 @@ final class AppModel: ObservableObject {
         workplaceIsDeparture = false
         quantity = 1
         selectedType = nil
+        endKmText = ""
+        startKmText = lastEndKm.map(String.init) ?? ""
     }
 
     // MARK: Jövőbeli napok tiltása
@@ -556,7 +561,9 @@ final class AppModel: ObservableObject {
             address: travelFields?.stopAddresses,
             departureAddress: travelFields?.departureAddress,
             arrivalAddress: travelFields?.arrivalAddress,
-            workplaceIsDeparture: type.isTravel && workplaceIsDeparture
+            workplaceIsDeparture: type.isTravel && workplaceIsDeparture,
+            startKm: type.isTravel ? Self.kmValue(startKmText).value : nil,
+            endKm: type.isTravel ? Self.kmValue(endKmText).value : nil
         )
     }
 
@@ -600,7 +607,9 @@ final class AppModel: ObservableObject {
             address: travelFields?.stopAddresses,
             departureAddress: travelFields?.departureAddress,
             arrivalAddress: travelFields?.arrivalAddress,
-            workplaceIsDeparture: type.isTravel && workplaceIsDeparture
+            workplaceIsDeparture: type.isTravel && workplaceIsDeparture,
+            startKm: type.isTravel ? Self.kmValue(startKmText).value : nil,
+            endKm: type.isTravel ? Self.kmValue(endKmText).value : nil
         )
     }
 
@@ -713,6 +722,14 @@ final class AppModel: ObservableObject {
         checkMonthlyLimit(after: entry)
     }
 
+    /// A `i`. bejegyzés km-állásának beállítása és mentése (az ellenőrzés az `updateKm`-ben történik).
+    func setKm(at i: Int, start: Int?, end: Int?) {
+        guard entries.indices.contains(i) else { return }
+        entries[i].startKm = start
+        entries[i].endKm = end
+        save()
+    }
+
     func delete(_ id: UUID) {
         entries.removeAll { $0.id == id }
         save()
@@ -804,6 +821,7 @@ final class AppModel: ObservableObject {
             let result = try CSV.decode(data)
             entries = result.entries.sorted { sortKey($0) < sortKey($1) }
             lastModified = modificationDate(of: dataFileURL)
+            if startKmText.isEmpty { startKmText = lastEndKm.map(String.init) ?? "" }
             if result.warnings.isEmpty {
                 lastError = nil
                 needsBackupBeforeSave = false

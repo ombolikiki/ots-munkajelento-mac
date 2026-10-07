@@ -138,6 +138,7 @@ struct SettingsView: View {
             placesCard
             categoriesCard
             suggestCard
+            kmCard
             calendarCard
             remindersCard
         case .calendar:
@@ -161,6 +162,20 @@ struct SettingsView: View {
             Text("Javaslatok gépelés közben").font(.subheadline.weight(.semibold))
             Toggle("Javaslatok a mezők alatt", isOn: $suggestOn)
             Text("A Munkahely, a Kiindulás, a Cél, a Tevékenység típusa és a Tevékenység mezőben gépelés közben javaslatokat kapsz a mentett helyszínekből, a típusokból és a korábbi tevékenységekből (például „ügy” → Ügyintézés). ↓ és ↑ lépked, Enter vagy Tab elfogadja, Esc bezárja. Kikapcsolva a Tevékenység típusa a régi legördülő lista.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }.card()
+    }
+
+    // MARK: Kilométeróra
+
+    @AppStorage("km.track") private var kmTrack = false
+
+    private var kmCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Kilométeróra").font(.subheadline.weight(.semibold))
+            Toggle("Minden úthoz megadom a km-órát is", isOn: $kmTrack)
+            Text("Az Utazás űrlapján az induló és az érkező km-állás mindig látszik (nem kötelező). Ha ezt bekapcsolod, az ablak alján látszik a hónap autós km-einek összege is. Az induló állás az előző út végállásával előtöltődik; a rögzített utak km-állását a napi listában a ceruza ikonnal javíthatod.")
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }.card()

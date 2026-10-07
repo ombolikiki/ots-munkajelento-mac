@@ -202,6 +202,15 @@ struct Entry: Codable, Identifiable, Equatable {
     var arrivalAddress: String? = nil
     /// Utazásnál: igaz, ha az OTS-munkahely az Indulás (nem a `workplace` lista, ami ilyenkor csak az útvonal köztes helyeit adja).
     var workplaceIsDeparture = false
+    /// Utazásnál (opcionális): a kilométeróra állása az út elején és végén (egész km). Régi fájlokban nincs.
+    var startKm: Int? = nil
+    var endKm: Int? = nil
+
+    /// Az út hossza km-ben, ha mindkét állás megvan és az érkező nagyobb az indulónál.
+    var kmDriven: Int? {
+        guard let s = startKm, let e = endKm, e > s else { return nil }
+        return e - s
+    }
 
     var activityType: ActivityType? { ActivityType.lookup(code: type) }
 
@@ -244,6 +253,20 @@ enum Fmt {
         f.dateFormat = "HH:mm"
         return f
     }()
+
+    static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "hu_HU")
+        f.dateFormat = "yyyy. MMMM"
+        return f
+    }()
+
+    /// „2026. október” (az évszám és a hónap neve); hibás dátumnál az év és a hónap száma.
+    static func monthName(year: Int, month: Int) -> String {
+        var c = DateComponents(); c.year = year; c.month = month; c.day = 1
+        guard let d = Calendar.current.date(from: c) else { return "\(year). \(month). hó" }
+        return monthFormatter.string(from: d)
+    }
 
     static let longDay: DateFormatter = {
         let f = DateFormatter()

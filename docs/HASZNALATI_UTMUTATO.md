@@ -2,7 +2,7 @@
 
 Verzió: {{VERZIO}} · Mac (macOS 14 vagy újabb)
 
-> **Mi új ebben a verzióban?** Az 1.5.6: az **üres szombat és vasárnap is jelez** (hétvégén nincs napi óraszám, bármilyen bejegyzés elég), **Szabadnap egy kattintással** a kitöltetlen napokon, figyelmeztetés a **havi szabadnap-korlátra**, és a skill **már nem egészíti ki a sorokat 8 órára**; az üres vasárnap `!!!` (nem magától szabadnap). Az 1.5.4: a **Beállítások öt fülre** van osztva (Megjelenés, Rögzítés, Naptár, OTS, Adatok), a menüsori ablak bezárása után újranyitáskor a **rögzítő oldal** jön, és a mezők **javaslatokat** adnak gépelés közben (például „ügy” → Ügyintézés). Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
+> **Mi új ebben a verzióban?** Az 1.6.0: az Utazás űrlapon **km-óra** mezők (induló és érkező km, nem kötelezők), **km-javítás** a napi listában, a **hónap összes km-e** az ablak alján (beállítható), és a Költségelszámolás **minden utat külön sorba** teszi, km-ekkel (a skill is így tölti az OTS-t). Az 1.5.6: az **üres szombat és vasárnap is jelez** (hétvégén nincs napi óraszám, bármilyen bejegyzés elég), **Szabadnap egy kattintással** a kitöltetlen napokon, figyelmeztetés a **havi szabadnap-korlátra**, és a skill **már nem egészíti ki a sorokat 8 órára**; az üres vasárnap `!!!` (nem magától szabadnap). Az 1.5.4: a **Beállítások öt fülre** van osztva (Megjelenés, Rögzítés, Naptár, OTS, Adatok), a menüsori ablak bezárása után újranyitáskor a **rögzítő oldal** jön, és a mezők **javaslatokat** adnak gépelés közben (például „ügy” → Ügyintézés). Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
 
 > **Röviden:** menüsori időnapló lelkészeknek és gyülekezeti munkatársaknak. Rögzíted, mit csináltál és mennyi ideig, az alkalmazás összesít, figyelmeztet, ha lemaradtál, és ebből tölti ki az MI-asszisztens (Claude, ChatGPT/Codex vagy az ingyenes Antigravity CLI) az OTS Havi munkajelentőjét, a Költségelszámolást és a létszámjelentőt. Minden adat a saját gépeden marad.
 
@@ -70,6 +70,8 @@ Az **Utazás** típusnál a Munkahely mező helyett két mező van:
 - **Cél:** hová mentél. **Több helyet is megadhatsz**, sorrendben, vesszővel elválasztva (`Tata, Mór`), és bármelyik lehet pontos címmel (`Tata, Fő út 1., Mór`). A vesszők közt az utcára vagy házszámra utaló rész (például `Fő út 1.`, `Kossuth u.`) a megelőző településhez tartozó cím, minden más rész új település. Ha kétséges, a helyeket ` - ` vagy `;` is elválasztja (`Tata - Mór u. 5., Mór`).
 - **Munkahely** választógomb a két mező fölött: azt jelöli, hogy a **Kiindulás** vagy a **Cél** volt a munkahely. Alapból a Cél. Az OTS Havi munkajelentő Munkahely mezőjébe ez kerül.
 - **Oda-vissza** pipa a két mező mellett. **Alapból be van jelölve**: a munka után visszatértél a Kiindulásra, így az útvonal `Kiindulás - Cél(ek) - Kiindulás`, és a Google Maps a teljes oda-vissza távolságot számolja. Ha **kikapcsolod**, az út egyirányú volt: `Kiindulás - Cél(ek)`. A pipa minden rögzítés után újra bejelölt.
+
+- **Km-óra** (induló és érkező km): az Utazás űrlap alján mindig látszik két mező, **egyik sem kötelező**. Az induló km **az előző út végállásával előtöltődik**, az érkezőt az út végén írhatod be (üresen is hagyhatod). Az érkező km legyen nagyobb az induló km-nél, az induló pedig ne legyen kisebb az előző út végállásánál; hibás értéknél az űrlap jelzi, és nem engedi a rögzítést. Oda-vissza útnál az állások az egész körútra vonatkoznak.
 
 Az **Utazásnál a Tevékenység kötelező** (az Út célja), mert ez kerül a Költségelszámolás táblázatba. Az OTS-be mindig a **település** kerül, a pontos címet a Google Maps használja.
 
@@ -156,6 +158,10 @@ A főablak alján a **kiválasztott nap** bejegyzései állnak: idő, típus, mu
 
 ![Emlékeztető sáv, kitöltetlen és hiányos napok](kepek/10-emlekezteto.png)
 
+**Km-állások javítása:** az Utazás sorokon **ceruza ikon** van. Rákattintva a sor alatt kinyílik az induló és az érkező km, **Mentés** gombbal véglegesíted. Ugyanazok az ellenőrzések érvényesek, mint rögzítéskor (az érkező nagyobb az induló km-nél, az induló nem kisebb az előző út végállásánál); üresen hagyva az érték törlődik. A sorban a *km-óra: 1000 → 1060 (60 km)* látszik.
+
+**A hónap összes km-e:** a *Beállítások › Rögzítés › Kilométeróra* alatt bekapcsolhatod a **„Minden úthoz megadom a km-órát is”** kapcsolót. Ilyenkor az ablak alján látszik a kiválasztott nap hónapjának autós km-e (például *2026. október: 1234 km*); csak a két állással rögzített utak számítanak, és a sor jelzi, ha valamelyik útnál hiányzik valamelyik állás.
+
 ## 8. Gyülekezeti létszámjelentő
 
 A Beállítások › *Gyülekezeti létszámjelentő* résznél kapcsolhatod be, és itt regisztrálhatod a **gyülekezeteidet** (sorrendben). Esedékes minden negyedév **második és hetedik szombatja** (például 2026-ban: július 11. és augusztus 15., október 10. és november 14.).
@@ -211,7 +217,7 @@ A Beállítások › *Megjelenés* részben:
 A Beállítások (fogaskerék) **öt fülre** van osztva, a lap tetején: **Megjelenés**, **Rögzítés**, **Naptár** (a Mac Naptár szinkronja), **OTS** és **Adatok**. Az utoljára megnyitott fül megmarad. Ha a menüsori ablakot bezárod (az ikonra vagy az ablakon kívülre kattintva), **újranyitáskor a rögzítő oldal** jön, nem a Beállítások. Az alábbi képek az összes kategóriát egymás alatt mutatják.
 
 - **Megjelenés:** színséma, világos/sötét mód, menüsori ikonok, jelzőhangok.
-- **Rögzítés:** székhely és helyszínek, kategóriák és színek, javaslatok gépelés közben, a Naptár fül munkanap-sávja és a hét kezdőnapja, emlékeztetők és jelzések.
+- **Rögzítés:** székhely és helyszínek, kategóriák és színek, javaslatok gépelés közben, a kilométeróra kapcsoló, a Naptár fül munkanap-sávja és a hét kezdőnapja, emlékeztetők és jelzések.
 - **Naptár:** a Mac Naptár szinkronja (15. fejezet).
 - **OTS:** gyülekezeti létszámjelentő, skill és kézi felvitel.
 - **Adatok:** adatfájl, indítás bejelentkezéskor, útmutató, törlés (alapállapot).
@@ -320,7 +326,7 @@ Az Antigravity ingyenes csomagja **heti kerettel** működik; ha elfogy, várj a
 - Az alkalom és a fő is 1 órának számít a napi 8 órás összegben.
 - A saját (egyedi) kategóriákat nem viszi át az OTS-be.
 - Az üres napokra `!!!` jelölést tesz, amit neked kell kitöltened, mielőtt a hónap lezárható.
-- A **Költségelszámolás** útvonalait az Utazás bejegyzések Indulás, Munkahely(ek) és Érkezés mezőiből állítja össze, és a Google Maps többpontos útvonalával számol.
+- A **Költségelszámolás** útvonalait az Utazás bejegyzések Indulás, Munkahely(ek) és Érkezés mezőiből állítja össze, és a Google Maps többpontos útvonalával számol. **Minden Utazás bejegyzés külön sorba kerül** (ha egy napra több van, bekapcsolja az OTS „Naponta több sor” pipáját). Ha a bejegyzésben megvan az **induló és az érkező km**, azt írja az Ind. km és az Érk. km mezőbe, és a Google Mapsre nincs szükség; ha csak az egyik van meg, a másikat a Google Maps adja; ha egyik sincs, a korábbi módon számol.
 - A **Látogatottság** feladatnál a létszámokat a rögzített létszámjelentésekből olvassa. Ha egy dátumra és gyülekezetre nincs adat, rákérdez, és **soha nem talál ki számot**.
 
 **Átnevezés (1.3.2):** a skill korábbi neve `detkapu-adminisztracio` volt. Ha az alkalmazás telepítette, az új telepítés lecseréli az új nevű skillre (a régiről másolat készül a `skill-mentesek` mappába). A kézzel telepített régi skillhez (például saját magadéhoz) nem nyúl, de jelzi, hogy van; ilyenkor érdemes az egyiket törölni, hogy ne legyen két hasonló skill.
@@ -357,7 +363,7 @@ Fent a hónapot lapozhatod. Hónap elején (10-éig) az előző hónapnál nyíl
 
 ![Munkajelentő naptárban, kategóriánként színezve](kepek/23-kezi-munkajelento-naptar.png)
 
-**Költségelszámolás:** naponként az útvonal (`Indulás - Munkahely1 - … - Érkezés`, az üres Indulás/Érkezés helyén a székhely, az egymás melletti azonos pontok összevonva) és a Tevékenység (kizárólag az Utazás bejegyzéseiből; oda-vissza útnál `A - B - A`). A **Google Maps** gomb megnyitja a többpontos útvonalat, hogy a kilométert (autóval, a leggyorsabb út, felfelé kerekítve) kiszámold. Ha egy napra több útvonal van, az OTS egy sorába ` ; `-vel elválasztva írd.
+**Költségelszámolás:** **minden út külön sor** (ha egy napra több út van, a napon belüli sorszámmal, és az OTS-ben a „Naponta több sor” pipát kell bekapcsolni); soronként az útvonal (`Indulás - Munkahely1 - … - Érkezés`, az üres Indulás/Érkezés helyén a székhely, az egymás melletti azonos pontok összevonva) és a Tevékenység (kizárólag az Utazás bejegyzéseiből; oda-vissza útnál `A - B - A`). Ha az útnál **megvan a km-óra állása** (induló és érkező km), a sor a *Km-óra* oszlopban mutatja, és ezeket kell az OTS Ind. km és Érk. km mezőjébe írni. Ha nincs, a **Google Maps** gomb megnyitja a többpontos útvonalat, hogy a kilométert (autóval, a leggyorsabb út, felfelé kerekítve) kiszámold.
 
 ![Költségelszámolás](kepek/24-kezi-koltseg.png)
 
@@ -485,6 +491,14 @@ Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy tele
 ## 17. Változásnapló
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
+
+### 1.6.0
+- **Kilométeróra az Utazásnál:** az űrlapon mindig látszik az **induló és az érkező km** mező (nem kötelezők). Az induló km az előző út végállásával előtöltődik. Hibás értéknél (az érkező nem nagyobb az induló km-nél, az induló kisebb az előző út végállásánál, nem szám) az űrlap jelzi, és nem engedi a rögzítést.
+- **Km-javítás:** a napi listában az Utazás sorokon ceruza ikon: a rögzített út km-állásai utólag javíthatók vagy törölhetők.
+- **A hónap összes km-e** az ablak alján, ha a *Beállítások › Rögzítés › Kilométeróra* kapcsoló be van kapcsolva.
+- **Költségelszámolás: minden út külön sor** a Kézi felvitel ablakban, a km-órás állásokkal együtt (a Google Maps gomb csak ott marad, ahol nincs teljes km-állás). Ha egy napra több út van, az OTS-ben a „Naponta több sor” pipa szükséges.
+- **CSV:** két új, opcionális oszlop a fájl végén: `Induló km`, `Érkező km` (a régi fájlok olvashatók maradnak).
+- **Skill:** minden Utazás külön OTS-sor (több út egy napon: „Naponta több sor”); az Ind. km és az Érk. km a trackerből jön, ha megvan (egyébként a Google Maps).
 
 ### 1.5.6
 - **Hétvége:** az üres szombat és az üres vasárnap is jelez (piros pont a naptárban és a napi listában, szerepel a kitöltetlen napok között). Hétvégén nincs napi óraszám, bármilyen bejegyzés elég.

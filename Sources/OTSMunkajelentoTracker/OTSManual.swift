@@ -21,17 +21,29 @@ struct OTSWorkRow: Equatable {
     }
 }
 
-/// A Költségelszámolás egy napja (egy sor).
+/// A Költségelszámolás egy útja (egy sor): minden Utazás bejegyzés külön sor, akkor is, ha egy napra több van
+/// (az OTS „Naponta több sor” pipájával vihető fel).
 struct OTSCostRow: Equatable {
     var date: Date
-    var key: String
-    var routes: [[String]]          // minden Utazás bejegyzés útvonala (Indulás, Munkahely(ek), Érkezés)
-    /// Ugyanezek a útvonalak pontos címekkel a Google Maps számára (az OTS-be a `routes` települései kerülnek).
-    var mapRoutes: [[RoutePoint]] = []
+    var key: String                 // a nap (YYYY-MM-DD)
+    var index = 0                   // az út sorszáma a napon (0-tól)
+    var count = 1                   // hány út van a napon
+    var points: [String]            // az útvonal pontjai (Indulás, Munkahely(ek), Érkezés)
+    /// Ugyanez pontos címekkel a Google Maps számára (az OTS-be a `points` települései kerülnek).
+    var mapPoints: [RoutePoint] = []
     var activity: String
-    var route: String { routes.map { $0.joined(separator: " - ") }.joined(separator: " ; ") }
-    var multiple: Bool { routes.count > 1 }
-    var signature: String { route + "|" + activity }
+    /// A tracker km-órás állásai (opcionális): ha megvannak, az OTS Ind. km / Érk. km mezőjébe ezek kerülnek.
+    var startKm: Int? = nil
+    var endKm: Int? = nil
+    var route: String { points.joined(separator: " - ") }
+    /// Egyedi azonosító a pipálóhoz: a nap és az út sorszáma.
+    var rowKey: String { key + "#" + String(index) }
+    var multiple: Bool { count > 1 }
+    var kmDriven: Int? {
+        guard let s = startKm, let e = endKm, e > s else { return nil }
+        return e - s
+    }
+    var signature: String { route + "|" + activity + "|" + (startKm.map(String.init) ?? "") + "|" + (endKm.map(String.init) ?? "") }
 }
 
 /// Az útvonal egy pontja: a település neve (az OTS-be ez kerül) és ha van, a pontos cím (a Google Mapsnek).
@@ -207,15 +219,14 @@ enum OTSManual {
             let dayEntries = chronological(entries.filter { $0.date == key })
             let travel = dayEntries.filter { $0.type == ActivityType.travel.code }
             guard !travel.isEmpty else { continue }
-            let routes = travel.map { routePoints($0, home: home) }.filter { !$0.isEmpty }
-            let mapRoutes = travel.filter { !routePoints($0, home: home).isEmpty }.map { routeDetail($0, home: home) }
-            // A Költségelszámolás Tevékenység mezőjét kizárólag az Utazás bejegyzések Tevékenysége adja (más kategóriából nem veszünk át szöveget).
-            var texts: [String] = []
-            for e in travel {
-                let t = e.activity.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !t.isEmpty, !texts.contains(t) { texts.append(t) }
+            // Minden Utazás bejegyzés külön sor. A Tevékenység mezőt kizárólag az Utazás bejegyzés Tevékenysége adja (más kategóriából nem veszünk át szöveget).
+            let trips = travel.filter { !routePoints($0, home: home).isEmpty }
+            for (i, e) in trips.enumerated() {
+                rows.append(OTSCostRow(date: day, key: key, index: i, count: trips.count,
+                                       points: routePoints(e, home: home), mapPoints: routeDetail(e, home: home),
+                                       activity: e.activity.trimmingCharacters(in: .whitespacesAndNewlines),
+                                       startKm: e.startKm, endKm: e.endKm))
             }
-            rows.append(OTSCostRow(date: day, key: key, routes: routes, mapRoutes: mapRoutes, activity: texts.joined(separator: "; ")))
         }
         return rows
     }

@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.5.6)
+# OTS Munkajelentő Tracker (1.6.0)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -32,6 +32,13 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.6.0
+
+- **Kilométeróra** (`Entry.startKm/endKm`, `AppModel+Km.swift`): az Utazás űrlapon mindig látható, opcionális induló és érkező km mező; az induló az előző út végállásával előtöltve (`lastEndKm`); ellenőrzés (`kmProblem`: érkező > induló, induló ≥ előző vég); **km-javítás** a napi listában (`updateKm`, ceruza ikon); **havi összes km** az ablak alján (`monthKm`), a Beállítások › Rögzítés › Kilométeróra kapcsolóval (`km.track`).
+- **Költségelszámolás: minden út külön sor** (`OTSCostRow` útonként, `rowKey` = nap#sorszám), km-állásokkal; a Google Maps gomb csak teljes km-állás nélkül.
+- **CSV:** új oszlopok a végén: `Induló km`, `Érkező km` (22 oszlop; a régi fájlok olvashatók maradnak).
+- **Skill:** minden Utazás külön sor (több út/nap: OTS „Naponta több sor”), az Ind. km / Érk. km a trackerből, ha megvan.
 
 ### 1.5.6
 

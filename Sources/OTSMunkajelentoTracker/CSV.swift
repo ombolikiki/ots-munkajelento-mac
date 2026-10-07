@@ -7,7 +7,8 @@ enum CSV {
         "Azonosító", "Dátum", "Kezdés", "Vége", "Időtartam (mp)", "Időtartam (óó:pp)",
         "Indulás", "Munkahely", "Érkezés",
         "Típus kód", "Típus", "Egység", "Mennyiség", "Tevékenység", "Forrás",
-        "Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím", "Munkahely helye"
+        "Cím", "Naptár azonosító", "Indulás cím", "Érkezés cím", "Munkahely helye",
+        "Induló km", "Érkező km"
     ]
 
     struct DecodeResult {
@@ -59,7 +60,9 @@ enum CSV {
                 e.calendarID ?? "",
                 e.departureAddress ?? "",
                 e.arrivalAddress ?? "",
-                e.workplaceIsDeparture ? "indulás" : ""
+                e.workplaceIsDeparture ? "indulás" : "",
+                e.startKm.map(String.init) ?? "",
+                e.endKm.map(String.init) ?? ""
             ]
             lines.append(fields.map(quote).joined(separator: ";"))
         }
@@ -93,6 +96,7 @@ enum CSV {
         let iId = idx("Azonosító"), iStart = idx("Kezdés"), iEnd = idx("Vége"), iSecs = idx("Időtartam (mp)")
         let iUnit = idx("Egység"), iDep = idx("Indulás"), iArr = idx("Érkezés"), iWork = idx("Munkahely"), iQty = idx("Mennyiség"), iAct = idx("Tevékenység"), iSrc = idx("Forrás")
         let iAddr = idx("Cím"), iCalID = idx("Naptár azonosító"), iDepAddr = idx("Indulás cím"), iArrAddr = idx("Érkezés cím"), iWpl = idx("Munkahely helye")
+        let iKm0 = idx("Induló km"), iKm1 = idx("Érkező km")
 
         var entries: [Entry] = []
         var warnings: [String] = []
@@ -103,6 +107,11 @@ enum CSV {
             func cell(_ i: Int?) -> String {
                 guard let i = i, i < row.count else { return "" }
                 return row[i].trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            /// A km-állás: nemnegatív egész szám, ésszerű határon belül; más érték üres.
+            func km(_ i: Int?) -> Int? {
+                guard let v = number(cell(i)), v >= 0, v <= 9_999_999 else { return nil }
+                return v
             }
             if row.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) { continue }
 
@@ -165,7 +174,9 @@ enum CSV {
                 calendarID: cell(iCalID).isEmpty ? nil : cell(iCalID),
                 departureAddress: cell(iDepAddr).isEmpty ? nil : cell(iDepAddr),
                 arrivalAddress: cell(iArrAddr).isEmpty ? nil : cell(iArrAddr),
-                workplaceIsDeparture: cell(iWpl).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil) == "indulas"
+                workplaceIsDeparture: cell(iWpl).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil) == "indulas",
+                startKm: km(iKm0),
+                endKm: km(iKm1)
             ))
         }
         return DecodeResult(entries: entries, warnings: warnings)

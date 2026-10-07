@@ -190,7 +190,7 @@ struct OTSManualView: View {
             return "\(n)/\(rows.count) nap felvíve"
         case .cost:
             let rows = costRowsList
-            let n = rows.filter { checklist.isDone("c|" + $0.key, $0.signature) }.count
+            let n = rows.filter { checklist.isDone("c|" + $0.rowKey, $0.signature) }.count
             return "\(n)/\(rows.count) nap felvíve"
         case .attendance:
             let rows = attendanceRowsList.filter { $0.report != nil }
@@ -446,35 +446,34 @@ struct OTSManualView: View {
 
     private func costChips(_ day: Date, _ rows: [OTSCostRow]) -> [Chip] {
         let key = Fmt.dayFormatter.string(from: day)
-        guard let r = rows.first(where: { $0.key == key }) else { return [] }
-        return r.routes.map { Chip(text: $0.joined(separator: " → "), color: CategoryColors.color(code: ActivityType.travel.code)) }
+        return rows.filter { $0.key == key }.map { Chip(text: $0.points.joined(separator: " → "), color: CategoryColors.color(code: ActivityType.travel.code)) }
     }
 
     /// Megnyitja a Google Maps útvonalát. Ha az útvonalban pontos cím is van, előbb ellenőrzi (Apple geokódoló);
     /// ami nem található, azt a település helyettesíti. Cím nélküli útvonalnál azonnal nyit.
-    private func openMaps(_ r: OTSCostRow, index: Int, fallback: URL) {
-        guard r.mapRoutes.indices.contains(index) else { NSWorkspace.shared.open(fallback); return }
-        let route = r.mapRoutes[index]
-        let addresses = route.compactMap { $0.address }
+    private func openMaps(_ r: OTSCostRow, fallback: URL) {
+        let addresses = r.mapPoints.compactMap { $0.address }
         guard !addresses.isEmpty else { NSWorkspace.shared.open(fallback); return }
         Task { @MainActor in
             let verdicts = await AddressChecker.shared.verdicts(for: addresses)
-            NSWorkspace.shared.open(OTSManual.mapsURL(route, useAddress: { verdicts[$0] ?? true }) ?? fallback)
+            NSWorkspace.shared.open(OTSManual.mapsURL(r.mapPoints, useAddress: { verdicts[$0] ?? true }) ?? fallback)
         }
     }
 
-    private func mapsButton(_ r: OTSCostRow) -> some View {
-        HStack(spacing: 6) {
-            ForEach(Array(r.routes.enumerated()), id: \.offset) { i, route in
-                if let url = OTSManual.mapsURL(route) {
-                    Button { openMaps(r, index: i, fallback: url) } label: {
-                        Label(r.routes.count > 1 ? "Térkép \(i + 1)" : "Google Maps", systemImage: "map")
-                    }
-                    .controlSize(.small)
-                    .help("Megnyitja a Google Maps többpontos útvonalát a kilométer kiszámításához")
-                }
-            }
+    /// Google Maps gomb: csak ott, ahol a tracker nem ad teljes km-állást (különben nincs rá szükség).
+    @ViewBuilder private func mapsButton(_ r: OTSCostRow) -> some View {
+        if r.kmDriven == nil, let url = OTSManual.mapsURL(r.points) {
+            Button { openMaps(r, fallback: url) } label: { Label("Google Maps", systemImage: "map") }
+                .controlSize(.small)
+                .help("Megnyitja a Google Maps többpontos útvonalát a kilométer kiszámításához")
         }
+    }
+
+    /// „km-óra: 1000 → 1060 (60 km)”, részleges állásnál a hiányzó helyén „?”.
+    private func kmLabel(_ r: OTSCostRow) -> String {
+        guard r.startKm != nil || r.endKm != nil else { return "" }
+        let s = r.startKm.map(String.init) ?? "?", e = r.endKm.map(String.init) ?? "?"
+        return "\(s) → \(e)" + (r.kmDriven.map { " (\($0) km)" } ?? "")
     }
 
     private var costList: some View {
@@ -482,11 +481,11 @@ struct OTSManualView: View {
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 10) {
                 if rows.isEmpty { empty("Ebben a hónapban nincs Utazás bejegyzés.") }
-                ForEach(rows, id: \.key) { r in
+                ForEach(rows, id: \.rowKey) { r in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            doneButton("c|" + r.key, r.signature)
-                            Text(Self.longFormat.string(from: r.date)).font(.subheadline.weight(.semibold))
+                            doneButton("c|" + r.rowKey, r.signature)
+                            Text(Self.longFormat.string(from: r.date) + (r.multiple ? " · \(r.index + 1). út" : "")).font(.subheadline.weight(.semibold))
                             Spacer()
                             mapsButton(r)
                         }
@@ -495,10 +494,13 @@ struct OTSManualView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 labeled("Útvonal", r.route)
                                 labeled("Tevékenység", r.activity)
+                                if r.startKm != nil || r.endKm != nil {
+                                    labeled("Km-óra", kmLabel(r))
+                                }
                             }
                         }
-                        if r.multiple {
-                            Label("Több útvonal ugyanazon a napon: az OTS egy sorába ` ; ` -vel elválasztva írd, a kilométer a részútvonalak összege.", systemImage: "exclamationmark.triangle")
+                        if r.multiple && r.index == 0 {
+                            Label("Ezen a napon több út van: az OTS-ben kapcsold be a „Naponta több sor” pipát, és minden utat külön sorba vigyél fel (Hozzáadás, majd a Nap kiválasztása).", systemImage: "info.circle")
                                 .font(.caption).foregroundStyle(Theme.warn)
                         }
                     }
@@ -520,7 +522,7 @@ struct OTSManualView: View {
 
     private var costTable: some View {
         let rows = costRowsList
-        let wCheck: CGFloat = 30, wDay: CGFloat = 86, wRoute: CGFloat = 380, wAct: CGFloat = 300, wMap: CGFloat = 130
+        let wCheck: CGFloat = 30, wDay: CGFloat = 86, wRoute: CGFloat = 340, wAct: CGFloat = 240, wKm: CGFloat = 150, wMap: CGFloat = 130
         return GeometryReader { geo in ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 0) {
@@ -528,15 +530,16 @@ struct OTSManualView: View {
                     Text("Dátum").frame(width: wDay, alignment: .leading)
                     Text("Útvonal").frame(width: wRoute, alignment: .leading)
                     Text("Tevékenység").frame(width: wAct, alignment: .leading)
+                    Text("Km-óra").frame(width: wKm, alignment: .leading)
                     Text("Kilométer").frame(width: wMap, alignment: .leading)
                 }
                 .font(.system(size: 11, weight: .semibold)).padding(.vertical, 5)
                 Divider()
                 if rows.isEmpty { empty("Ebben a hónapban nincs Utazás bejegyzés.") }
-                ForEach(rows, id: \.key) { r in
+                ForEach(rows, id: \.rowKey) { r in
                     HStack(alignment: .top, spacing: 0) {
-                        doneButton("c|" + r.key, r.signature).frame(width: wCheck).padding(.top, 3)
-                        Text(Self.dayFormat.string(from: r.date)).font(.system(size: 12, weight: .medium))
+                        doneButton("c|" + r.rowKey, r.signature).frame(width: wCheck).padding(.top, 3)
+                        Text(Self.dayFormat.string(from: r.date) + (r.multiple ? " (\(r.index + 1).)" : "")).font(.system(size: 12, weight: .medium))
                             .frame(width: wDay, alignment: .leading).padding(.top, 3)
                         HStack(spacing: 0) {
                             Rectangle().fill(CategoryColors.color(code: ActivityType.travel.code)).frame(width: 3)
@@ -544,11 +547,12 @@ struct OTSManualView: View {
                         }
                         .frame(width: wRoute)
                         copyable(r.activity, width: wAct)
+                        copyable(kmLabel(r), width: wKm)
                         Group {
-                            if r.routes.contains(where: { $0.count >= 2 }) { mapsButton(r) } else { Text(" ") }
+                            if r.points.count >= 2 { mapsButton(r) } else { Text(" ") }
                         }.frame(width: wMap, alignment: .leading).padding(.top, 1)
                     }
-                    .opacity(checklist.isDone("c|" + r.key, r.signature) ? 0.45 : 1)
+                    .opacity(checklist.isDone("c|" + r.rowKey, r.signature) ? 0.45 : 1)
                     Divider().opacity(0.5)
                 }
             }
