@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.6.1)
+# OTS Munkajelentő Tracker (1.6.2)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -38,6 +38,11 @@ A forráskód és a dokumentáció az [MIT licenc](LICENSE) alatt áll: szabadon
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.6.2
+
+- **MIT licenc** (`LICENSE`); az Adventista jelkép nem része a licencnek (lásd „Licenc”).
+- A skill-sablon Költségelszámolás-leírásában a példa autó-fül neve általános példa lett (a skill változott, ezért a telepített skillnél megjelenik a frissítés-jelzés).
 
 ### 1.6.1
 

@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 APP_NAME="OTS Munkajelentő Tracker"
 EXE="OTSMunkajelentoTracker"
 BUNDLE_ID="hu.detkapu.ots-munkajelento-tracker"
-VERSION="${VERSION:-1.6.1}"
+VERSION="${VERSION:-1.6.2}"
 DIST="dist"
 # Az iCloud-os (Dokumentumok) mappa fájlattribútumokat tesz a csomagra, ami elrontja az aláírást,
 # ezért ideiglenes mappában állítjuk össze és írjuk alá.
