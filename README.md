@@ -29,6 +29,12 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 2. Az első indításnál a macOS figyelmeztethet, hogy az app nem ellenőrizhető. Ilyenkor: **Rendszerbeállítások › Adatvédelem és biztonság**, görgess le, és kattints a **„Mégis megnyitom”** gombra. Ez csak egyszer kell.
 3. Az app a menüsorban jelenik meg (óra ikon). Kattints rá a megnyitáshoz. A fogaskerék ikonnál állíthatod be a Pomodoro időket és az indítást bejelentkezéskor.
 
+## Licenc
+
+A forráskód és a dokumentáció az [MIT licenc](LICENSE) alatt áll: szabadon használható, módosítható és terjeszthető, a szerzői jogi sor megtartásával, garancia nélkül.
+
+**Kivétel:** az **Adventista jelkép** (a menüsori „Adventista jelkép” ikon, `Sources/OTSMunkajelentoTracker/LogoData.swift`) az egyház védjegye, és **nem része a licencnek**. Ha a jelkép használatával kapcsolatban az egyház jelzi, hogy nem megfelelő, a jelképet el kell távolítani.
+
 ## Verziótörténet
 
 A legújabb verzió van elöl.

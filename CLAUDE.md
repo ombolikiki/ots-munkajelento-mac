@@ -40,6 +40,10 @@ Menüsori Mac-alkalmazás (SwiftUI, Swift Package, Xcode nélkül). Magyarul kom
 
 - Telepíthető asztali PWA (Windows/Chrome; **mobil nézet nincs**), sima JavaScript, függőség nélkül; a natív app funkcióival, automatikus mentéssel az adatmappába (File System Access API) és skill-telepítő varázslóval; részletek: `web/README.md`. Tesztek: `cd web && node --test test/*.test.js` (négy időzónában is futtasd). A szabályok (dátum, CSV-formátum, Tevékenység csak az Utazásnál kötelező, oda-vissza út, 1 fő/alkalom = 1 óra) megegyeznek a Mac-alkalmazáséval; a CSV-formátumot nem szabad eltérően módosítani. Még nincs benne: a naptárintegráció (lásd Gyűjtött teendők).
 
+## Licenc
+
+- A tároló MIT licenc alatt áll (`LICENSE`, 2026). Az Adventista jelkép (`LogoData.swift`, menüsori alapikon) az egyház védjegye, **nem része a licencnek**; ha az egyház jelzi, hogy nem megfelelő, el kell távolítani, és semleges alapikont kell adni. Személyes adat (név, rendszám, gyülekezetek) a tárolóba nem kerülhet: a `scripts/check-skill-template.py` a skill-sablont ellenőrzi.
+
 ## Adatformátum
 
 - Bejegyzések: `bejegyzesek.csv` (pontosvesszővel tagolt, UTF-8 BOM). A skill a `beallitasok.json`-ból tudja, hol van. Visszafelé kompatibilisnek kell maradnia.

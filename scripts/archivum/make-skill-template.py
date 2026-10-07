@@ -71,8 +71,8 @@ def skill_md(t):
     t = sub(t, "# DETKAPU Adminisztráció", "# OTS Adminisztráció", n)
     t = sub(t, "Az OTS 4.40 (https://ots.detkapu.hu/) webes rendszerben", f"Az OTS 4.40 ({OTS_URL}) webes rendszerben", n)
     t = sub(t, "1. Nyisd meg az OTS-t, és kérd meg", f"1. Nyisd meg az OTS-t ({OTS_URL}, {OTS_NEV}), és kérd meg", n)
-    t = sub(t, "Győr, Tata, Tatabánya\")", GY + "\")", n)
-    t = sub(t, "- Felhasználó: Ömböli Krisztián. Gyülekezetek: Győr, Tata, Tatabánya.",
+    t = sub(t, "Székesfehérvár, Mór, Bicske\")", GY + "\")", n)
+    t = sub(t, "- Felhasználó: Kovács János. Gyülekezetek: Székesfehérvár, Mór, Bicske.",
             f"- Felhasználó: {NEV}.{{{{#GYULEKEZETEK}}}} Gyülekezetek: {GY}.{{{{/GYULEKEZETEK}}}}"
             f"{{{{#SZEKHELY}}}} Székhely (a költségelszámolás útvonalainak kiindulópontja): {SZ}.{{{{/SZEKHELY}}}}", n)
     t = sub(t, "- Böngészőként a beépített Claude böngészőpanelt használd (`mcp__Claude_Browser__*`).", f"- {BR}", n)
@@ -178,7 +178,7 @@ leaks = []
 for root, _, files in os.walk(DST):
     for f in files:
         text = open(os.path.join(root, f), encoding="utf-8").read()
-        for bad in ("Ömböli", "Krisztián", "Győr", "Tatabánya", "Tata,", "Oláh", "Sáfrány", "Toggl", "toggl", "Claude_Browser", "ots.detkapu.hu", "DETKAPU", "detkapu-adminisztracio"):
+        for bad in ("Ömböli", "Krisztián", "Győr", "Tatabánya", "Tata,", "Toggl", "toggl", "Claude_Browser", "ots.detkapu.hu", "DETKAPU", "detkapu-adminisztracio"):
             for m in re.finditer(re.escape(bad), text):
                 leaks.append(f"{os.path.relpath(os.path.join(root, f), DST)}: {bad} ...{text[max(0, m.start()-30):m.end()+30]!r}")
 # a jelölők kiegyensúlyozottsága
