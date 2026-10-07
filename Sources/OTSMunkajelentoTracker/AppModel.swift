@@ -85,12 +85,21 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Pomodoro
-    @Published private(set) var pomoPhase: PomoPhase = .idle
+    @Published private(set) var pomoPhase: PomoPhase = .idle { didSet { updatePomoActivity() } }
     @Published private(set) var pomoPhaseEnd = Date()
     @Published private(set) var pomoDone = 0
     private var pomoPhaseStart = Date()
+    /// A futó munkamenet kezdete (nil, ha nincs; a „szünet is munkaidő” módban egy munkamenet = egy bejegyzés).
+    @Published private(set) var pomoSessionStart: Date?
+    private var pomoTemplate: Entry?
+    private var pomoLastAlive = Date()
+    private var lastPomoTick: Date?
+    private var sleepObserver: NSObjectProtocol?
+    private var pomoActivity: NSObjectProtocol?
 
     let ud = UserDefaults.standard
+    /// A Pomodoro időforrása (tesztben léptethető; élesben a rendszeróra).
+    var clock: () -> Date = { Date() }
     /// Igaz, ha az alkalmazás által telepített skill régebbi, mint az alkalmazásba csomagolt (a fejlécben jelzés, egy kattintással frissíthető).
     @Published private(set) var skillUpdateAvailable = false
     /// A legutóbbi skill-frissítés eredménye (a Beállítások › Skill részben látszik).
@@ -119,7 +128,7 @@ final class AppModel: ObservableObject {
     init() {
         ud.register(defaults: [
             "pomo.work": 25, "pomo.short": 5, "pomo.long": 15, "pomo.every": 4,
-            "pomo.autoBreak": true, "pomo.autoWork": false,
+            "pomo.autoBreak": true, "pomo.autoWork": false, "pomo.merge": true,
             "draft.quantity": 1,
             "missing.lookback": "thisMonth",
             "sound.pomoEnd": "Glass", "sound.breakEnd": "Ping",
@@ -162,6 +171,7 @@ final class AppModel: ObservableObject {
         appearanceObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
         ) { _ in AppearanceManager.apply() }
+        recoverPomoSession()
         writePointer()
         requestNotificationPermission()
 
@@ -179,6 +189,9 @@ final class AppModel: ObservableObject {
                 self?.calendarSync.sync()
             }
         }
+        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.handleSleep() }
         terminateObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.handleTerminate() }
@@ -438,39 +451,111 @@ final class AppModel: ObservableObject {
     // MARK: Pomodoro
     private func pomoMinutes(_ key: String) -> Int { max(1, ud.integer(forKey: key)) }
 
+    /// A „szünet is munkaidő” mód (alapból be): egy munkamenet (pomók és szünetek együtt) egyetlen bejegyzés. Kikapcsolva a régi működés:
+    /// minden lejárt pomo külön bejegyzés, a szünet nem rögzül.
+    var pomoMerge: Bool { ud.bool(forKey: "pomo.merge") }
+    /// Futó munkamenet alatt a mezők zároltak (másik típushoz le kell állítani a Pomodoro-t).
+    var pomoLocksFields: Bool { pomodoroActive && pomoSessionStart != nil }
+    var pomoSessionElapsed: Int? { pomoSessionStart.map { max(0, Int(now.timeIntervalSince($0))) } }
+
     func startPomodoro() {
         guard timerStart == nil, fieldsComplete, !type.isWholeDay else { return }
         beginPhase(.work)
+        if pomoMerge {
+            // a mezők a munkamenet elején rögzülnek
+            pomoSessionStart = pomoPhaseStart
+            pomoTemplate = makeEntry(start: pomoPhaseStart, end: pomoPhaseStart, source: "pomodoro")
+            persistPomoSession(alive: pomoPhaseStart)
+        }
     }
 
-    /// Leállítás: a félbehagyott pomo eltelt ideje is bekerül a naplóba (30 másodperc alatt nem, azt véletlen kattintásnak vesszük).
-    func stopPomodoro() {
-        if pomoPhase == .work {
-            let end = Date()
-            if end.timeIntervalSince(pomoPhaseStart) >= 30, fieldsComplete {
+    /// Leállítás: a munkamenet (vagy régi módban a félbehagyott pomo) eltelt ideje bekerül a naplóba (30 másodperc alatt nem).
+    func stopPomodoro() { stopPomodoro(at: clock(), clearFields: true) }
+
+    private func stopPomodoro(at end: Date, clearFields: Bool) {
+        if pomoSessionStart != nil {
+            finishPomoSession(at: end)
+        } else if pomoPhase == .work {
+            if end.timeIntervalSince(pomoPhaseStart) >= PomoSession.minSeconds, fieldsComplete {
                 add(makeEntry(start: pomoPhaseStart, end: end, source: "pomodoro"))
             }
         }
-        clearDraft()
+        if clearFields { clearDraft() }
         pomoPhase = .idle
-        now = Date()
+        now = clock()
     }
 
+    /// A gép altatása (a fedél lecsukása): a munkamenet az altatás pillanatával lezárul és rögzül; ébredéskor új indítható.
+    func handleSleep() {
+        guard pomoPhase != .idle else { return }
+        stopPomodoro(at: clock(), clearFields: false)
+    }
+
+    /// Elvetés: az éppen futó pomo nem kerül be; a munkamenet korábbi pomói és szünetei igen.
     func discardPomodoro() {
+        if pomoSessionStart != nil { finishPomoSession(at: pomoPhaseStart) }
         pomoPhase = .idle
-        now = Date()
+        now = clock()
         clearDraft()
     }
 
     func skipPomodoroBreak() {
         guard pomoPhase == .shortBreak || pomoPhase == .longBreak else { return }
+        if pomoSessionStart != nil {
+            if pomoPhase == .shortBreak, ud.bool(forKey: "pomo.autoWork") {
+                beginPhase(.work)   // a munkamenet folytatódik
+            } else {
+                finishPomoSession(at: clock())
+                pomoPhase = .idle
+            }
+            return
+        }
         pomoPhase = .idle
         if ud.bool(forKey: "pomo.autoWork") { beginPhase(.work) }
     }
 
     func resetPomodoroCounter() { pomoDone = 0 }
 
-    private func beginPhase(_ phase: PomoPhase) {
+    /// A munkamenetből egy (vagy éjfélen átnyúlva több) bejegyzés készül a kezdéstől `end`-ig.
+    private func finishPomoSession(at end: Date) {
+        let start = pomoSessionStart, template = pomoTemplate
+        pomoSessionStart = nil
+        pomoTemplate = nil
+        ud.removeObject(forKey: "pomo.session")
+        guard let start = start, let template = template else { return }
+        for e in PomoSession.entries(template: template, start: start, end: end) { add(e) }
+    }
+
+    private func persistPomoSession(alive: Date) {
+        guard let start = pomoSessionStart, let template = pomoTemplate else { return }
+        pomoLastAlive = alive
+        let rec = PomoSessionRecord(template: template, start: start, lastAlive: alive)
+        if let data = try? JSONEncoder().encode(rec) { ud.set(data, forKey: "pomo.session") }
+    }
+
+    /// Induláskor: ha az előző futás váratlanul leállt, a félbehagyott munkamenet a legutóbbi életjelig rögzül.
+    func recoverPomoSession() {
+        guard let data = ud.data(forKey: "pomo.session") else { return }
+        ud.removeObject(forKey: "pomo.session")
+        guard let rec = try? JSONDecoder().decode(PomoSessionRecord.self, from: data) else { return }
+        let end = min(rec.lastAlive, clock())
+        for e in PomoSession.entries(template: rec.template, start: rec.start, end: end) { add(e) }
+    }
+
+    /// Futó Pomodoro alatt az időzítők nem lassulhatnak le (App Nap), de az alvást nem akadályozzuk.
+    private func updatePomoActivity() {
+        if pomoPhase != .idle {
+            if pomoActivity == nil {
+                pomoActivity = ProcessInfo.processInfo.beginActivity(options: .userInitiatedAllowingIdleSystemSleep, reason: "Pomodoro fut")
+            }
+        } else if let a = pomoActivity {
+            ProcessInfo.processInfo.endActivity(a)
+            pomoActivity = nil
+        }
+    }
+
+    private func beginPhase(_ phase: PomoPhase, from startAt: Date? = nil) {
+        let start = startAt ?? clock()
         let minutes: Int
         switch phase {
         case .work: minutes = pomoMinutes("pomo.work")
@@ -478,17 +563,19 @@ final class AppModel: ObservableObject {
         case .longBreak: minutes = pomoMinutes("pomo.long")
         case .idle: return
         }
-        let start = Date()
-        now = start
+        now = max(start, clock())
+        lastPomoTick = clock()
         pomoPhaseStart = start
         pomoPhaseEnd = start.addingTimeInterval(TimeInterval(minutes * 60))
         pomoPhase = phase
+        if pomoSessionStart != nil { persistPomoSession(alive: clock()) }
     }
 
     private func pomoPhaseFinished() {
         let finished = pomoPhase
+        let merged = pomoSessionStart != nil
         if finished == .work {
-            if fieldsComplete {
+            if !merged, fieldsComplete {
                 add(makeEntry(start: pomoPhaseStart, end: pomoPhaseEnd, source: "pomodoro"))
             }
             pomoDone += 1
@@ -496,13 +583,22 @@ final class AppModel: ObservableObject {
             let nextBreak: PomoPhase = (pomoDone % every == 0) ? .longBreak : .shortBreak
             notify(title: "Pomo vége", body: nextBreak == .longBreak ? "Hosszú szünet jön." : "Rövid szünet jön.", soundKey: "sound.pomoEnd")
             if ud.bool(forKey: "pomo.autoBreak") {
-                beginPhase(nextBreak)
+                beginPhase(nextBreak, from: pomoPhaseEnd)
             } else {
+                if merged { finishPomoSession(at: pomoPhaseEnd) }
                 pomoPhase = .idle
             }
         } else {
             notify(title: "A szünet véget ért", body: "Mehet a következő pomo.", soundKey: "sound.breakEnd")
-            if ud.bool(forKey: "pomo.autoWork") {
+            if merged {
+                // a munkamenet a hosszú szünet végén (vagy automatikus indítás nélkül a szünet végén) véget ér
+                if finished == .shortBreak, ud.bool(forKey: "pomo.autoWork") {
+                    beginPhase(.work, from: pomoPhaseEnd)
+                } else {
+                    finishPomoSession(at: pomoPhaseEnd)
+                    pomoPhase = .idle
+                }
+            } else if ud.bool(forKey: "pomo.autoWork") {
                 beginPhase(.work)
             } else {
                 pomoPhase = .idle
@@ -512,15 +608,28 @@ final class AppModel: ObservableObject {
 
     private var lastDayKey = ""
 
-    private func tick() {
+    func tick() {
         // Napváltáskor frissülnek a napi jelzések (kitöltetlen napok, emlékeztető ikon).
         let key = Fmt.dayFormatter.string(from: Date())
         if key != lastDayKey {
             if !lastDayKey.isEmpty { objectWillChange.send() }
             lastDayKey = key
         }
+        if pomoPhase != .idle {
+            let t = clock()
+            // Nagy időugrás két ütem között = a gép aludt (és nem kaptunk jelzést): a munkamenet a legutóbbi ütemnél ér véget.
+            if let last = lastPomoTick, t.timeIntervalSince(last) > 120 {
+                lastPomoTick = nil
+                stopPomodoro(at: last, clearFields: false)
+                return
+            }
+            lastPomoTick = t
+            if pomoSessionStart != nil, t.timeIntervalSince(pomoLastAlive) >= 10 { persistPomoSession(alive: t) }
+        } else {
+            lastPomoTick = nil
+        }
         guard timerStart != nil || pomoPhase != .idle else { return }
-        now = Date()
+        now = clock()
         if pomoPhase != .idle, now >= pomoPhaseEnd {
             pomoPhaseFinished()
         }
@@ -537,7 +646,7 @@ final class AppModel: ObservableObject {
     private func handleTerminate() {
         // A futó Pomodoro-pomo ne vesszen el kilépéskor. Az időzítő állapota
         // magától megmarad (timer.start), és induláskor folytatódik.
-        if pomoPhase == .work { stopPomodoro() }
+        if pomoPhase != .idle { stopPomodoro() }
     }
 
     // MARK: Bejegyzések
@@ -920,6 +1029,9 @@ final class AppModel: ObservableObject {
         let fm = FileManager.default
         timerStart = nil
         pomoPhase = .idle
+        pomoSessionStart = nil
+        pomoTemplate = nil
+        ud.removeObject(forKey: "pomo.session")
         pomoDone = 0
         pendingSlot = nil
         if fm.fileExists(atPath: dataFileURL.path) {

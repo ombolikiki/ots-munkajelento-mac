@@ -486,6 +486,7 @@ struct FieldsView: View {
                 SuggestTextField(prompt: activityPrompt, text: $m.activity, candidates: { m.activitySuggestions() })
             }
         }
+        .disabled(m.pomoLocksFields)   // futó Pomodoro-munkamenet alatt a mezők zároltak (másik típushoz le kell állítani)
         .card()
     }
 
@@ -735,13 +736,13 @@ struct PomodoroView: View {
                 if let h = startHint { Hint(text: h) }
             case .work:
                 HStack(spacing: 8) {
-                    BigButton(title: "Leállítás és mentés", symbol: "stop.fill", color: Theme.stop, enabled: m.fieldsComplete) {
+                    BigButton(title: "Leállítás és mentés", symbol: "stop.fill", color: Theme.stop, enabled: m.fieldsComplete || m.pomoLocksFields) {
                         m.stopPomodoro()
                     }
                     Button("Elvetés") { m.discardPomodoro() }
                         .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
                 }
-                if let h = m.missingFieldsHint { Hint(text: h) }
+                if let h = m.missingFieldsHint, !m.pomoLocksFields { Hint(text: h) }
             case .shortBreak, .longBreak:
                 HStack(spacing: 8) {
                     BigButton(title: "Szünet kihagyása", symbol: "forward.fill", color: palette.accent) { m.skipPomodoroBreak() }
@@ -751,7 +752,8 @@ struct PomodoroView: View {
             }
 
             HStack(spacing: 8) {
-                Text("Elvégzett pomo: \(m.pomoDone)").font(.caption).foregroundStyle(.secondary)
+                Text("Elvégzett pomo: \(m.pomoDone)" + (m.pomoSessionElapsed.map { " · \(Fmt.hm($0))" } ?? "")).font(.caption).foregroundStyle(.secondary)
+                    .help(m.pomoSessionElapsed != nil ? "A munkamenet eddigi ideje (pomók és szünetek együtt)" : "")
                 if m.pomoDone > 0 {
                     Button("Nulláz") { m.resetPomodoroCounter() }
                         .buttonStyle(.plain).font(.caption).foregroundStyle(palette.accent)

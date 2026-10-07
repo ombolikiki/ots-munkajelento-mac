@@ -138,6 +138,7 @@ struct SettingsView: View {
             placesCard
             categoriesCard
             suggestCard
+            pomoCard
             kmCard
             calendarCard
             remindersCard
@@ -162,6 +163,22 @@ struct SettingsView: View {
             Text("Javaslatok gépelés közben").font(.subheadline.weight(.semibold))
             Toggle("Javaslatok a mezők alatt", isOn: $suggestOn)
             Text("A Munkahely, a Kiindulás, a Cél, a Tevékenység típusa és a Tevékenység mezőben gépelés közben javaslatokat kapsz a mentett helyszínekből, a típusokból és a korábbi tevékenységekből (például „ügy” → Ügyintézés). ↓ és ↑ lépked, Enter vagy Tab elfogadja, Esc bezárja. Kikapcsolva a Tevékenység típusa a régi legördülő lista.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }.card()
+    }
+
+    // MARK: Pomodoro
+
+    @AppStorage("pomo.merge") private var pomoMerge = true
+
+    private var pomoCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Pomodoro").font(.subheadline.weight(.semibold))
+            Toggle("A szünet is munkaidő, és a munkamenet egy bejegyzésben rögzül", isOn: $pomoMerge)
+            Text(pomoMerge
+                 ? "A pomók és a szünetek együtt, egyetlen bejegyzésként kerülnek a naplóba: leállításkor, a hosszú szünet végén (vagy a szünet végén, ha a következő pomo nem indul automatikusan), és a gép altatásakor (a fedél lecsukásakor). A munkamenet alatt a mezők nem szerkeszthetők: másik típushoz állítsd le a Pomodoro-t. Ha az app váratlanul leáll, a következő indításkor rögzíti, ami addig eltelt."
+                 : "Minden lejárt pomo külön bejegyzés, a szünet nem számít a munkaidőbe. A gép altatásakor a futó pomo eltelt ideje így is mentődik.")
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }.card()

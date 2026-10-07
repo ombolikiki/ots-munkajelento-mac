@@ -2111,5 +2111,146 @@ do {
     w.orderOut(nil)
 }
 
+// MARK: Pomodoro: munkamenet (pomo + szünet = egy bejegyzés), altatás, helyreállítás
+
+section("Pomodoro: munkamenet, altatás, helyreállítás")
+do {
+    let ud = UserDefaults.standard
+    // éjfélbontás: 2024–2035 minden negyedév első napja (nyári időszámítás, évhatár is)
+    let cal = Calendar.current
+    var splitOK = true
+    var splitCount = 0
+    for year in 2024...2035 {
+        for month in [1, 4, 7, 10] {
+            let midnight = DateUtil.startOfDay(d(year, month, 1))
+            let start = midnight.addingTimeInterval(-600)   // az előző nap 23:50 körül
+            let end = midnight.addingTimeInterval(1200)
+            var tpl = Entry(id: UUID(), date: "x", start: nil, end: nil, durationSeconds: 0, workplace: "Győr", type: ActivityType.meeting.code, typeLabel: ActivityType.meeting.label, unit: Unit.hours.rawValue, quantity: nil, activity: "", source: "pomodoro")
+            tpl.activity = "T"
+            let es = PomoSession.entries(template: tpl, start: start, end: end)
+            let sum = es.reduce(0) { $0 + $1.durationSeconds }
+            if es.count != 2 || sum != 1800 || es[0].date != ymd(start) || es[1].date != ymd(midnight)
+                || es[0].durationSeconds != 600 || es[1].durationSeconds != 1200 || es.contains(where: { $0.activity != "T" || $0.source != "pomodoro" }) {
+                splitOK = false
+                check("éjfélbontás \(year)-\(month)", false, "\(es.map { ($0.date, $0.durationSeconds) })")
+            }
+            splitCount += 1
+        }
+    }
+    check("éjfélen átnyúló munkamenet két bejegyzésre bomlik, 2024–2035 minden negyedévnél (\(splitCount) eset)", splitOK)
+    let tplS = Entry(id: UUID(), date: "x", start: nil, end: nil, durationSeconds: 0, workplace: "A", type: ActivityType.meeting.code, typeLabel: "M", unit: Unit.hours.rawValue, quantity: nil, activity: "", source: "pomodoro")
+    let noon = DateUtil.startOfDay(d(2026, 5, 4)).addingTimeInterval(12 * 3600)
+    check("30 másodpercnél rövidebb munkamenetből nincs bejegyzés", PomoSession.entries(template: tplS, start: noon, end: noon.addingTimeInterval(29)).isEmpty)
+    check("30 másodperces munkamenet rögzül", PomoSession.entries(template: tplS, start: noon, end: noon.addingTimeInterval(30)).count == 1)
+    check("pontosan éjfélig tartó munkamenet nem kap üres második bejegyzést", PomoSession.entries(template: tplS, start: DateUtil.startOfDay(d(2026, 5, 5)).addingTimeInterval(-3600), end: DateUtil.startOfDay(d(2026, 5, 5))).count == 1)
+
+    // a modell: léptethető órával
+    for k in ["pomo.session", "pomo.merge", "pomo.autoWork", "pomo.autoBreak", "draft.workplace", "draft.type", "draft.activity"] { ud.removeObject(forKey: k) }
+    ud.set(1, forKey: "pomo.work"); ud.set(1, forKey: "pomo.short"); ud.set(1, forKey: "pomo.long"); ud.set(2, forKey: "pomo.every")
+    let pdir = tmp + "/pomosession"
+    try? FileManager.default.removeItem(atPath: pdir)
+    ud.set(pdir + "/bejegyzesek.csv", forKey: "dataFile")
+    let base = DateUtil.startOfDay(Date().addingTimeInterval(-86400 * 4)).addingTimeInterval(10 * 3600)   // 4 napja 10:00
+    var fake = base
+    func make() -> AppModel {
+        let m = AppModel()
+        m.clock = { fake }
+        return m
+    }
+    func fill(_ m: AppModel) { m.selectedType = .meeting; m.workplace = "Győr"; m.activity = "Pomodoro" }
+    func advance(_ m: AppModel, _ secs: Double) { fake = fake.addingTimeInterval(secs); m.tick() }
+    func pomoEntries(_ m: AppModel) -> [Entry] { m.entries.filter { $0.source == "pomodoro" } }
+
+    let pm = make()
+    check("a munkamenet-mód alapból be van kapcsolva", pm.pomoMerge)
+    // 1. automatikus indítás nélkül: pomo + szünet = egy bejegyzés
+    fake = base; fill(pm); pm.startPomodoro()
+    check("indítás után fut a pomo, a mezők zároltak", pm.pomoPhase == .work && pm.pomoLocksFields)
+    advance(pm, 60)
+    check("a pomo végén a szünet automatikusan indul, a munkamenet folytatódik", pm.pomoPhase == .shortBreak && pm.pomoSessionStart != nil && pomoEntries(pm).isEmpty)
+    advance(pm, 60)
+    var es = pomoEntries(pm)
+    check("a szünet végén (automatikus indítás nélkül) a munkamenet véget ér: pomo + szünet egyetlen bejegyzés", pm.pomoPhase == .idle && es.count == 1 && es[0].durationSeconds == 120 && es[0].start == base && es[0].end == base.addingTimeInterval(120), "\(es.map { $0.durationSeconds })")
+    check("a munkamenet végén a mezők feloldva, a pomo-számláló nőtt", !pm.pomoLocksFields && pm.pomoDone == 1)
+    // 2. automatikus indítással: a hosszú szünet vége zárja le
+    ud.set(true, forKey: "pomo.autoWork")
+    pm.resetPomodoroCounter()
+    let before2 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(3600); pm.startPomodoro()
+    advance(pm, 60); advance(pm, 60)   // pomo, rövid szünet
+    check("automatikus indításnál a rövid szünet után új pomo kezdődik (egy munkamenet)", pm.pomoPhase == .work && pomoEntries(pm).count == before2)
+    advance(pm, 60)   // a második pomo vége: hosszú szünet jön (every = 2)
+    check("a második pomo után hosszú szünet", pm.pomoPhase == .longBreak)
+    advance(pm, 60)
+    es = pomoEntries(pm)
+    check("a hosszú szünet végén a munkamenet véget ér, és egyetlen bejegyzés van (4 perc)", pm.pomoPhase == .idle && es.count == before2 + 1 && es.last?.durationSeconds == 240 && !pm.pomoLocksFields, "\(es.map { $0.durationSeconds })")
+    ud.removeObject(forKey: "pomo.autoWork")
+    // 3. leállítás szünet közben: a szünet addig eltelt része is beszámít
+    let before3 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(7200); fill(pm); pm.startPomodoro()
+    advance(pm, 60)
+    fake = fake.addingTimeInterval(30)
+    pm.stopPomodoro()
+    es = pomoEntries(pm)
+    check("leállítás szünet közben: a pomo és a szünet addig eltelt része egy bejegyzés (90 mp)", es.count == before3 + 1 && es.last?.durationSeconds == 90 && pm.pomoPhase == .idle, "\(es.map { $0.durationSeconds })")
+    check("leállítás után az űrlap kiürül", pm.workplace == "" && pm.selectedType == nil)
+    // 4. altatás: a munkamenet az altatás pillanatával lezárul, a mezők megmaradnak, ébredéskor új indítható
+    let before4 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(10800); fill(pm); pm.startPomodoro()
+    advance(pm, 45)
+    pm.handleSleep()
+    es = pomoEntries(pm)
+    check("altatás: a futó pomo eltelt ideje (45 mp) rögzül, nem folytatódik", es.count == before4 + 1 && es.last?.durationSeconds == 45 && pm.pomoPhase == .idle && pm.pomoSessionStart == nil)
+    check("altatás után új pomo indítható (a mezők megmaradtak)", pm.fieldsComplete && !pm.pomoLocksFields)
+    // 5. rövid munkamenet
+    let before5 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(14400); pm.startPomodoro()
+    advance(pm, 20); pm.stopPomodoro()
+    check("20 másodperces munkamenet nem rögzül", pomoEntries(pm).count == before5)
+    // 6. elvetés: a korábbi pomók és szünetek megmaradnak, a futó pomo nem
+    ud.set(true, forKey: "pomo.autoWork")
+    pm.resetPomodoroCounter()
+    let before6 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(18000); fill(pm); pm.startPomodoro()
+    advance(pm, 60); advance(pm, 60)   // pomo + szünet, új pomo indul
+    advance(pm, 10)
+    pm.discardPomodoro()
+    es = pomoEntries(pm)
+    check("elvetés: az elvetett pomo nem kerül be, a korábbi pomo + szünet (2 perc) igen", es.count == before6 + 1 && es.last?.durationSeconds == 120 && pm.pomoPhase == .idle, "\(es.map { $0.durationSeconds })")
+    ud.removeObject(forKey: "pomo.autoWork")
+    // 7. időugrás (altatás jelzés nélkül)
+    let before7 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(21600); fill(pm); pm.startPomodoro()
+    advance(pm, 40)
+    advance(pm, 3600)   // a gép aludt: nagy ugrás két ütem között
+    es = pomoEntries(pm)
+    check("jelzés nélküli altatás (nagy időugrás): a munkamenet a legutóbbi ütemnél (40 mp) ér véget", es.count == before7 + 1 && es.last?.durationSeconds == 40 && pm.pomoPhase == .idle, "\(es.map { $0.durationSeconds })")
+    // 8. helyreállítás váratlan leállás után
+    let before8 = pomoEntries(pm).count
+    fake = base.addingTimeInterval(28800); fill(pm); pm.startPomodoro()
+    advance(pm, 25)
+    advance(pm, 20)   // 45 mp: az életjel mentődik (10 mp óta nem mentett)
+    let recovered = make()   // az alkalmazás újraindul, a régi példány „összeomlott”
+    let rec = recovered.entries.filter { $0.source == "pomodoro" }
+    check("összeomlás után a félbehagyott munkamenet a legutóbbi életjelig rögzül", rec.count == before8 + 1 && (rec.last?.durationSeconds ?? 0) >= 25 && (rec.last?.durationSeconds ?? 0) <= 45 && recovered.pomoPhase == .idle, "\(rec.map { $0.durationSeconds })")
+    check("a helyreállítás után nincs maradék mentett munkamenet", ud.data(forKey: "pomo.session") == nil)
+    pm.discardPomodoro()
+    // 9. régi mód: minden pomo külön bejegyzés, a szünet nem rögzül
+    ud.set(false, forKey: "pomo.merge")
+    let om = make()
+    check("a régi mód kapcsolható", !om.pomoMerge)
+    let before9 = pomoEntries(om).count
+    fake = base.addingTimeInterval(32400); fill(om); om.startPomodoro()
+    check("régi módban nincs munkamenet, a mezők nem zároltak", om.pomoSessionStart == nil && !om.pomoLocksFields)
+    advance(om, 60)
+    check("régi mód: a lejárt pomo külön bejegyzés (60 mp)", pomoEntries(om).count == before9 + 1 && pomoEntries(om).last?.durationSeconds == 60 && om.pomoPhase == .shortBreak)
+    advance(om, 60)
+    check("régi mód: a szünet nem rögzül", pomoEntries(om).count == before9 + 1 && om.pomoPhase == .idle)
+    fake = base.addingTimeInterval(36000); om.startPomodoro(); advance(om, 30)
+    om.handleSleep()
+    check("régi módban az altatás is menti a futó pomo eltelt idejét", pomoEntries(om).count == before9 + 2 && pomoEntries(om).last?.durationSeconds == 30)
+    for k in ["pomo.work", "pomo.short", "pomo.long", "pomo.every", "pomo.merge", "pomo.autoWork", "pomo.session", "draft.workplace", "draft.type", "draft.activity"] { ud.removeObject(forKey: k) }
+}
+
 print(failures == 0 ? "MINDEN TESZT RENDBEN (\(total) ellenőrzés)" : "HIBÁK: \(failures) / \(total)")
 exit(failures == 0 ? 0 : 1)

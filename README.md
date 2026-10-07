@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.6.2)
+# OTS Munkajelentő Tracker (1.7.0)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -38,6 +38,13 @@ A forráskód és a dokumentáció az [MIT licenc](LICENSE) alatt áll: szabadon
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.7.0
+
+- **Pomodoro-munkamenet** (`AppModel` Pomodoro szakasza, `PomoSession.swift`): a pomók és a szünetek egyetlen bejegyzésként rögzülnek (`pomo.merge`, alapból be), a szünet is munkaidő. A munkamenet véget ér: Leállítás, a hosszú szünet vége, a szünet vége automatikus indítás nélkül, altatás, kilépés. Futó munkamenet alatt a mezők zároltak (a bejegyzés a munkamenet elején rögzített mezőket kapja). Éjfélen átnyúlva két bejegyzés.
+- **Altatás** (`NSWorkspace.willSleepNotification`, tartaléknak a >120 s időugrás-észlelés): az altatásig eltelt idő rögzül, ébredéskor új pomo indítható. Folyamatos mentés (`pomo.session`): váratlan leállás után a következő indításkor rögzül, ami addig eltelt. Futó Pomodoro alatt `beginActivity` (nincs App Nap).
+- Új teszt: „Pomodoro: munkamenet, altatás, helyreállítás” (léptethető `AppModel.clock`).
+- CSV nem változott.
 
 ### 1.6.2
 

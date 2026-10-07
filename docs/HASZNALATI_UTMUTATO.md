@@ -2,7 +2,7 @@
 
 Verzió: {{VERZIO}} · Mac (macOS 14 vagy újabb)
 
-> **Mi új ebben a verzióban?** Az 1.6.2: MIT licenc, és egy példaszöveg cseréje a skillben (a skill-frissítés jelzése megjelenhet). Az 1.6.1: a javaslatlista javítása (a Munkahely, a Kiindulás és a Cél mezőben a lista az alatta lévő mezők fölött van, és a kattintás elfogadja a javaslatot). Az 1.6.0: az Utazás űrlapon **km-óra** mezők (induló és érkező km, nem kötelezők), **km-javítás** a napi listában, a **hónap összes km-e** az ablak alján (beállítható), és a Költségelszámolás **minden utat külön sorba** teszi, km-ekkel (a skill is így tölti az OTS-t). Az 1.5.6: az **üres szombat és vasárnap is jelez** (hétvégén nincs napi óraszám, bármilyen bejegyzés elég), **Szabadnap egy kattintással** a kitöltetlen napokon, figyelmeztetés a **havi szabadnap-korlátra**, és a skill **már nem egészíti ki a sorokat 8 órára**; az üres vasárnap `!!!` (nem magától szabadnap). Az 1.5.4: a **Beállítások öt fülre** van osztva (Megjelenés, Rögzítés, Naptár, OTS, Adatok), a menüsori ablak bezárása után újranyitáskor a **rögzítő oldal** jön, és a mezők **javaslatokat** adnak gépelés közben (például „ügy” → Ügyintézés). Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
+> **Mi új ebben a verzióban?** Az 1.7.0: a **Pomodoro munkamenetben** a pomók és a szünetek együtt, egyetlen bejegyzésként rögzülnek (a szünet is munkaidő), a gép altatásakor a futó munkamenet rögzül, és váratlan leállás után sem vész el az idő (6.3 pont). Az 1.6.2: MIT licenc, és egy példaszöveg cseréje a skillben (a skill-frissítés jelzése megjelenhet). Az 1.6.1: a javaslatlista javítása (a Munkahely, a Kiindulás és a Cél mezőben a lista az alatta lévő mezők fölött van, és a kattintás elfogadja a javaslatot). Az 1.6.0: az Utazás űrlapon **km-óra** mezők (induló és érkező km, nem kötelezők), **km-javítás** a napi listában, a **hónap összes km-e** az ablak alján (beállítható), és a Költségelszámolás **minden utat külön sorba** teszi, km-ekkel (a skill is így tölti az OTS-t). Az 1.5.6: az **üres szombat és vasárnap is jelez** (hétvégén nincs napi óraszám, bármilyen bejegyzés elég), **Szabadnap egy kattintással** a kitöltetlen napokon, figyelmeztetés a **havi szabadnap-korlátra**, és a skill **már nem egészíti ki a sorokat 8 órára**; az üres vasárnap `!!!` (nem magától szabadnap). Az 1.5.4: a **Beállítások öt fülre** van osztva (Megjelenés, Rögzítés, Naptár, OTS, Adatok), a menüsori ablak bezárása után újranyitáskor a **rögzítő oldal** jön, és a mezők **javaslatokat** adnak gépelés közben (például „ügy” → Ügyintézés). Az 1.5.0: az **Időzítő** korábbi kezdéssel indítható (és futás közben korrigálható), az **Utazás** űrlap újra lett tervezve: **Kiindulás** és **Cél** mező (a Célba több hely is írható, pontos címmel is), a mezők fölött **Munkahely** választógomb, mellettük az **Oda-vissza** pipa (alapból bejelölt). Az 1.4.1: az Utazás **Indulás** és **Érkezés** mezőjébe pontos cím is írható (`Tata, Fő út 1.`), az **Oda-vissza** pipa az Érkezés után az Indulást is felveszi az útvonalba, és az Érkezés mező többé nem szürke (5. és 15.7 pont). Az 1.4.0: **naptárintegráció** – a Mac Naptár-alkalmazásának lezajlott eseményeit (iCloud, Google, Outlook) az alkalmazás bejegyzésként átveszi, egy irányban (15. fejezet); **pontos címek** a bejegyzésekhez és a Google Maps útvonalhoz; az alkalmazáshoz **macOS 14 vagy újabb** kell. Az 1.3.3: a Gemini CLI helyett az **Antigravity CLI** az ingyenes megoldás (a Google leállította a Gemini CLI-t magánszemélyeknek; részletes útmutató a 13. fejezetben és külön PDF-ben). Az 1.3.2: a kategóriák színe újra állítható (beépített színválasztó). Az 1.3.1: *Kézi felvitel az OTS-be* ablak és kategóriaszínek (14. fejezet). Az összes eddigi változás a **17. fejezetben**, a Változásnaplóban van.
 
 > **Röviden:** menüsori időnapló lelkészeknek és gyülekezeti munkatársaknak. Rögzíted, mit csináltál és mennyi ideig, az alkalmazás összesít, figyelmeztet, ha lemaradtál, és ebből tölti ki az MI-asszisztens (Claude, ChatGPT/Codex vagy az ingyenes Antigravity CLI) az OTS Havi munkajelentőjét, a Költségelszámolást és a létszámjelentőt. Minden adat a saját gépeden marad.
 
@@ -113,14 +113,24 @@ A két lehetőség egymás mellett van, az egyiket választod. Az alkalom és f�
 A Pomodoro-technika: rövid, koncentrált munkaszakaszok (**pomók**) szünetekkel. Az alapbeállítás: **25 perc pomo, 5 perc rövid szünet, minden 4. pomo után 15 perc hosszú szünet**.
 
 - **Pomo indítása:** kitöltött mezők után indul. A menüsorban a pomo ideje látszik (alapból egy paradicsom ikon mellett, szünetben egy csészével).
-- **Leállítás és mentés:** a félbehagyott pomo **eltelt ideje is bekerül** a naplóba. A 30 másodpercnél rövidebb időt az alkalmazás véletlen kattintásnak veszi, és nem menti.
-- **Elvetés:** semmit nem ment.
-- **Szünet kihagyása:** a szünet helyett azonnal várakozó állapotba lépsz.
+- **Munkamenet (1.7.0-tól):** az első pomo indításától a végéig tartó szakasz. A **pomók és a szünetek együtt, egyetlen bejegyzésként** kerülnek a naplóba, és a **szünet is munkaidő** (beleszámít a napi összegbe). A munkamenet véget ér, ha
+  - megnyomod a **Leállítás és mentés** gombot (szünet közben: *Leállítás*),
+  - a **hosszú szünet** véget ér (automatikus indításnál ez zárja le a munkamenetet; újat kell indítani),
+  - a szünet véget ér, és a következő pomo **nem indul automatikusan** (ilyenkor a pomo + a szünet egy bejegyzés),
+  - a gép **elalszik** (a fedél lecsukása): ilyenkor az altatásig eltelt idő rögzül, az altatás ideje nem számít, és ébredéskor új pomo indítható,
+  - kilépsz az alkalmazásból.
+- **Mezők a munkamenet alatt:** a bejegyzés a munkamenet **elején** megadott típust, munkahelyet és tevékenységet kapja, ezért futó Pomodoro alatt a mezők nem szerkeszthetők. Másik típushoz állítsd le a Pomodoro-t. A pomo alatt a számláló mellett látszik a munkamenet eddigi ideje.
+- **Éjfél:** ha a munkamenet éjfélen átnyúlik, két bejegyzésre bomlik (mindkettő a saját napján, saját időtartammal).
+- **Váratlan leállás:** a futó munkamenet állapotát az alkalmazás folyamatosan menti; ha váratlanul leáll (áramszünet, összeomlás), a következő indításkor rögzíti, ami addig eltelt.
+- A 30 másodpercnél rövidebb munkamenetet az alkalmazás véletlen kattintásnak veszi, és nem menti.
+- **Elvetés:** az éppen futó pomo nem kerül be; a munkamenet korábbi pomói és szünetei igen.
+- **Szünet kihagyása:** a szünet addig eltelt része beszámít; automatikus indításnál a következő pomo azonnal indul, egyébként a munkamenet véget ér.
+- A régi működés (minden pomo külön bejegyzés, a szünet nem számít) a *Beállítások › Rögzítés › Pomodoro* kapcsolóval kapcsolható vissza.
 - Egy pomo végén az alkalmazás **hangot ad és értesítést küld**. A hang a Beállításokban választható.
 
 ![A Pomo beállításai](kepek/04-pomodoro-beallitasok.png)
 
-A **Pomo beállítások** a Pomodoro lapon nyílnak le: a pomo és a szünetek hossza, hány pomo után jön a hosszú szünet, valamint hogy a szünet, illetve a következő pomo automatikusan induljon-e. Az **Alapértelmezett** gomb visszaállítja a 25 / 5 / 15 percet.
+A **Pomo beállítások** a Pomodoro lapon nyílnak le: a pomo és a szünetek hossza, hány pomo után jön a hosszú szünet, valamint hogy a szünet, illetve a következő pomo automatikusan induljon-e. A munkamenet-mód kapcsolója a *Beállítások › Rögzítés › Pomodoro* alatt van. Az **Alapértelmezett** gomb visszaállítja a 25 / 5 / 15 percet.
 
 ### 6.4. Naptár
 
@@ -217,7 +227,7 @@ A Beállítások › *Megjelenés* részben:
 A Beállítások (fogaskerék) **öt fülre** van osztva, a lap tetején: **Megjelenés**, **Rögzítés**, **Naptár** (a Mac Naptár szinkronja), **OTS** és **Adatok**. Az utoljára megnyitott fül megmarad. Ha a menüsori ablakot bezárod (az ikonra vagy az ablakon kívülre kattintva), **újranyitáskor a rögzítő oldal** jön, nem a Beállítások. Az alábbi képek az összes kategóriát egymás alatt mutatják.
 
 - **Megjelenés:** színséma, világos/sötét mód, menüsori ikonok, jelzőhangok.
-- **Rögzítés:** székhely és helyszínek, kategóriák és színek, javaslatok gépelés közben, a kilométeróra kapcsoló, a Naptár fül munkanap-sávja és a hét kezdőnapja, emlékeztetők és jelzések.
+- **Rögzítés:** székhely és helyszínek, kategóriák és színek, javaslatok gépelés közben, a Pomodoro-munkamenet kapcsoló, a kilométeróra kapcsoló, a Naptár fül munkanap-sávja és a hét kezdőnapja, emlékeztetők és jelzések.
 - **Naptár:** a Mac Naptár szinkronja (15. fejezet).
 - **OTS:** gyülekezeti létszámjelentő, skill és kézi felvitel.
 - **Adatok:** adatfájl, indítás bejelentkezéskor, útmutató, törlés (alapállapot).
@@ -491,6 +501,14 @@ Az Utazás **Kiindulás** és **Cél** mezőjébe település (`Tata`) vagy tele
 ## 17. Változásnapló
 
 Az alkalmazás összes eddigi változása, verziónként (a legújabb van legfelül). Ha régebbi verziót használsz, a frissítés a zip kicsomagolásával és az Alkalmazások mappába húzással megy (előbb lépj ki a futó példányból); az adataid és a beállításaid megmaradnak.
+
+### 1.7.0
+- **Pomodoro: munkamenet.** A pomók **és a szünetek** együtt, **egyetlen bejegyzésként** rögzülnek, és a szünet is munkaidő. A munkamenet leállításkor, a hosszú szünet végén (vagy a szünet végén, ha a következő pomo nem indul automatikusan) ér véget. Futó munkamenet alatt a mezők zároltak (másik típushoz le kell állítani).
+- **A gép altatásakor (a fedél lecsukásakor)** a futó munkamenet az altatás pillanatával rögzül (az altatás ideje nem számít), ébredéskor új pomo indítható. Korábban a lejárt pomo teljes ideje rögzült, akkor is, ha a gép aludt.
+- **Éjfélen átnyúló munkamenet** két bejegyzésre bomlik.
+- **Folyamatos mentés:** váratlan leállás után a következő indításkor rögzül, ami addig eltelt.
+- **Kapcsoló:** *Beállítások › Rögzítés › Pomodoro*; alapból be van kapcsolva. Kikapcsolva a régi működés marad (minden pomo külön bejegyzés, a szünet nem számít; az altatás ilyenkor is menti a futó pomót).
+- Az adatformátum (CSV) nem változott.
 
 ### 1.6.2
 - **Licenc:** a forráskód MIT licenc alatt áll (az Adventista jelkép az egyház védjegye, nem része a licencnek).
