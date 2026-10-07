@@ -2057,5 +2057,59 @@ do {
     ukm.removeObject(forKey: "home")
 }
 
+// MARK: Javaslat a Munkahely mezőben (valódi űrlap): a lista a lejjebb lévő mezők fölött van, és kattintásra elfogadja a javaslatot
+
+section("Javaslat a Munkahely mezőben (valódi űrlap)")
+do {
+    let ud = UserDefaults.standard
+    ud.removeObject(forKey: "suggest.enabled")
+    let dir = tmp + "/munkahely-javaslat"
+    try? FileManager.default.removeItem(atPath: dir)
+    ud.set(dir + "/bejegyzesek.csv", forKey: "dataFile")
+    let fm = AppModel()
+    var seed = Entry(id: UUID(), date: "2026-05-04", start: nil, end: nil, durationSeconds: 3600, workplace: "Győr", type: ActivityType.meeting.code, typeLabel: ActivityType.meeting.label, unit: Unit.hours.rawValue, quantity: nil, activity: "", source: "manual")
+    fm.add(seed)
+    seed.id = UUID(); seed.workplace = "Győrszentiván"; fm.add(seed)
+    fm.selectedType = .meeting
+    fm.workplace = ""
+    fm.activity = ""
+    func textFields(_ v: NSView) -> [NSTextField] {
+        var r: [NSTextField] = []
+        if let t = v as? NSTextField, t.isEditable { r.append(t) }
+        for s in v.subviews { r += textFields(s) }
+        return r
+    }
+    let h = NSHostingController(rootView: FieldsView().padding(14).frame(width: 440).environmentObject(fm).environment(\.palette, .blue).environment(\.compact, false))
+    h.sizingOptions = []
+    let w = NSWindow(contentViewController: h)
+    w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .white
+    w.setContentSize(NSSize(width: 440, height: 360))
+    w.makeKeyAndOrderFront(nil)
+    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+    let fields = textFields(w.contentView!).sorted { $0.convert($0.bounds, to: nil).maxY > $1.convert($1.bounds, to: nil).maxY }
+    if let first = fields.first {
+        w.makeFirstResponder(first)
+        fm.workplace = "gy"
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        if let out = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"], let cv = w.contentView, let rep = cv.bitmapImageRepForCachingDisplay(in: cv.bounds) {
+            cv.cacheDisplay(in: cv.bounds, to: rep)
+            try? FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out + "/munkahely-javaslat.png"))
+        }
+        // az első javaslat sora: a mező alsó széle alatt (ablak-koordináta, bal alsó origó)
+        let f = first.convert(first.bounds, to: nil)
+        let p = NSPoint(x: f.minX + 40, y: f.minY - 2 - 3 - 11)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            if let ev = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { w.sendEvent(ev) }
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        check("Munkahely: a javaslatra kattintva a mező a javaslatot kapja (nem marad üres, nem a lejjebb lévő mező kapja a kattintást)", fm.workplace == "Győr" || fm.workplace == "Győrszentiván", "\(fm.workplace)")
+        check("Munkahely: a lejjebb lévő Tevékenység mező érintetlen", fm.activity == "")
+    } else {
+        check("Munkahely: az űrlap szövegmezői megtalálhatók", false)
+    }
+    w.orderOut(nil)
+}
+
 print(failures == 0 ? "MINDEN TESZT RENDBEN (\(total) ellenőrzés)" : "HIBÁK: \(failures) / \(total)")
 exit(failures == 0 ? 0 : 1)

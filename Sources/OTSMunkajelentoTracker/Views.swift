@@ -465,8 +465,11 @@ struct FieldsView: View {
                     TypeSuggestField()
                 }
             }
+            // A javaslatlista lefelé nyílik, ezért a fölső sor kerül a többi fölé (különben az alatta lévő mezők szövege
+            // a lista fölé rajzolódik, és a kattintást is ők kapják).
+            .zIndex(4)
 
-            if isTravel { travelRow }
+            if isTravel { travelRow.zIndex(3) }
 
             if m.type.hasQuantity && m.selectedType != nil {
                 HStack {
@@ -499,8 +502,8 @@ struct FieldsView: View {
     /// választógomb jelöli, hogy a Kiindulás vagy a Cél volt a munkahely (alapból a Cél).
     private var travelRow: some View {
         VStack(alignment: .leading, spacing: compact ? 4 : 6) {
-            travelPlaceRow
-            kmRow
+            travelPlaceRow.zIndex(2)
+            kmRow.zIndex(1)
         }
     }
 

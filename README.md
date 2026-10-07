@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.6.0)
+# OTS Munkajelentő Tracker (1.6.1)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -32,6 +32,10 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.6.1
+
+- **Javítás: a javaslatlista (Munkahely, Kiindulás, Cél) az alatta lévő mezők fölé kerül**, és a javaslatra kattintva a mező megkapja a javaslatot (korábban az alatta lévő mező szövege a lista fölé rajzolódott, és a kattintást is az kapta, ezért a lista eltűnt, a mező pedig üresen maradt). Az űrlap sorai fentről lefelé csökkenő rétegsorrendet kapnak (`FieldsView`); teszt: „Javaslat a Munkahely mezőben (valódi űrlap)”.
 
 ### 1.6.0
 
