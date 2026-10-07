@@ -12,7 +12,7 @@ struct OTSWorkRow: Equatable {
     var holiday: Bool               // Szabadság? jelölőnégyzet
     var values: [String: Int]       // típuskód → szám (óra, alkalom vagy fő); csak a nem nulla értékek
     var hasData: Bool               // van-e OTS-be vihető bejegyzés
-    var notes: [String]             // magyarázat (8-ra kiegészítve, 8-ra korlátozva, saját kategória…)
+    var notes: [String]             // magyarázat (8-ra korlátozva, saját kategória, üres nap…)
 
     var isEmpty: Bool { workplace.isEmpty && !holiday && values.isEmpty }
     /// A nap OTS-sorának szövege, a pipa érvényességének ellenőrzéséhez (ha változik a tartalom, a pipa érvényét veszti).
@@ -148,8 +148,8 @@ enum OTSManual {
 
     /// Egy nap sora a Havi munkajelentőben.
     /// - Parameters:
-    ///   - rules: a skill kiegészítő szabályai: hétköznap 8 órára kiegészítés az Ügyintézésben, `!!!` jelölés,
-    ///     üres napok (hétköznap és szombat `!!!`, vasárnap SZABADNAP). Szombaton a kiegészítés nem érvényes.
+    ///   - rules: az üres napok jelölése úgy, ahogy a skill írná: hétköznap, szombat és vasárnap is `!!!` (a vasárnap sem magától szabadnap:
+    ///     szabadnapot Szabadnap bejegyzés jelöl). A sorokat a skill nem egészíti ki 8 órára.
     static func workRow(day: Date, entries: [Entry], rules: Bool, today: Date) -> OTSWorkRow {
         let d0 = DateUtil.startOfDay(day)
         var row = OTSWorkRow(date: d0, key: Fmt.dayFormatter.string(from: d0), workplace: "", holiday: false, values: [:], hasData: false, notes: [])
@@ -170,8 +170,8 @@ enum OTSManual {
 
         if timed.isEmpty {
             if rules {   // OTS-szempontból üres nap
-                row.workplace = DateUtil.isSunday(d0) ? "SZABADNAP" : "!!!"
-                row.notes.append(DateUtil.isSunday(d0) ? "üres vasárnap: SZABADNAP" : "üres nap: !!! jelölés")
+                row.workplace = "!!!"
+                row.notes.append("üres nap: !!! jelölés")
             }
             return row
         }
@@ -193,26 +193,7 @@ enum OTSManual {
             values[t] = maxValue
         }
 
-        var places = workplaceList(timed)
-        if rules, !DateUtil.isSaturday(d0) {
-            let total = values.values.reduce(0, +)
-            if total < maxValue {
-                let add = maxValue - total
-                values[ActivityType.officeWork.code, default: 0] += add
-                row.notes.append("Ügyintézés +\(add) (8-ra kiegészítve)")
-            }
-            if (values[ActivityType.officeWork.code] ?? 0) > 4 {
-                places.insert("!!!", at: 0)
-                row.notes.append("!!! jelölés: az Ügyintézés több mint 4 óra")
-            }
-        }
-        // a !!! előtag a Munkahely mező elején áll (pl. "!!! Győr")
-        if places.first == "!!!" {
-            places.removeFirst()
-            row.workplace = places.isEmpty ? "!!!" : "!!! " + places.joined(separator: ", ")
-        } else {
-            row.workplace = places.joined(separator: ", ")
-        }
+        row.workplace = workplaceList(timed).joined(separator: ", ")
         row.values = values.filter { $0.value > 0 }
         return row
     }

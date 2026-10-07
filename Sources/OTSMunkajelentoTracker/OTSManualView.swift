@@ -146,9 +146,9 @@ struct OTSManualView: View {
                 .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 360)
                 Spacer()
                 if dataset == .work {
-                    Toggle("A skill szabályai szerint", isOn: $rules)
+                    Toggle("Üres napok jelölése (!!!)", isOn: $rules)
                         .toggleStyle(.checkbox)
-                        .help("8 órára kiegészítés az Ügyintézésben (hétköznap), !!! jelölés, üres napok kitöltése. Kikapcsolva a rögzített adatok szerepelnek, kiegészítés nélkül.")
+                        .help("Az üres napokat (hétköznap, szombat és vasárnap is) !!! jelöli, ahogy a skill is írná; a szabadnapot Szabadnap bejegyzés jelöli (SZABADNAP). A sorokat a skill nem egészíti ki 8 órára. Kikapcsolva csak a rögzített napok látszanak.")
                 }
             }
         }

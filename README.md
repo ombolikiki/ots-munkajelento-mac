@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.5.5)
+# OTS Munkajelentő Tracker (1.5.6)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -32,6 +32,13 @@ Az Xcode nem kell, a Command Line Tools elég. A `build.sh` ad-hoc aláírást h
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.5.6
+
+- **Hétvége:** az üres szombat és vasárnap is jelez (`Insights.targetState`: üres hétvégi nap = piros pont / a mai nap narancs; bármilyen bejegyzés vagy egész napos bejegyzés elég, hétvégén nincs napi óraszám).
+- **Szabadnap egy kattintással** (`AppModel.markDayOff`, `markEmptySundaysAsDayOff`): hold ikon a kitöltetlen napok címkéjén, jobb kattintásos menü, **Vasárnapok → szabadnap** gomb. Csak üres, múltbeli napot jelöl.
+- **Havi korlát figyelmeztetés** (`Insights.weeksInMonth`, `checkMonthlyLimit`): legfeljebb annyi SZABADNAP és annyi MUNKASZÜNETI NAP / hónap, ahány hét van a hónapban; átlépéskor a `notice` jelez (nem akadályoz).
+- **Skill:** kikerült a 8 órára kiegészítés, a 4 órát meghaladó Ügyintézés `!!!` jelölése és a szombati kivétel; az üres vasárnap `!!!` (nem `SZABADNAP`). A Kézi felvitel kapcsolója: *Üres napok jelölése (!!!)*.
 
 ### 1.5.5
 

@@ -84,7 +84,10 @@ let mon = d(2026, 10, 5), sat = d(2026, 10, 10), sun = d(2026, 10, 11), today = 
 check("hétfő 8 óra: kész", Insights.targetState(day: mon, entries: day8, today: today, targetHours: 8) == .reached)
 check("hétfő 3 óra: hiányzik", Insights.targetState(day: mon, entries: [entry(.meeting, secs: 3 * 3600)], today: today, targetHours: 8) == .short)
 check("üres hétköznap: hiányzik", Insights.targetState(day: mon, entries: [], today: today, targetHours: 8) == .short)
-check("szombat/vasárnap mentes", Insights.targetState(day: sat, entries: [], today: d(2026, 10, 14), targetHours: 8) == .exempt && Insights.targetState(day: sun, entries: [], today: d(2026, 10, 14), targetHours: 8) == .exempt)
+check("üres szombat és vasárnap jelez (piros), a hétvégén nincs napi óraszám", Insights.targetState(day: sat, entries: [], today: d(2026, 10, 14), targetHours: 8) == .short && Insights.targetState(day: sun, entries: [], today: d(2026, 10, 14), targetHours: 8) == .short)
+check("hétvégén bármilyen bejegyzés elég (nem 8 óra)", Insights.targetState(day: sat, entries: [entry(.preaching, q: 1)], today: d(2026, 10, 14), targetHours: 8) == .exempt && Insights.targetState(day: sun, entries: [entry(.meeting, secs: 600)], today: d(2026, 10, 14), targetHours: 8) == .exempt)
+check("hétvégén a szabadnap kitöltöttnek számít", Insights.targetState(day: sun, entries: [entry(.dayOff)], today: d(2026, 10, 14), targetHours: 8) == .exempt)
+check("a mai üres hétvégi nap folyamatban (narancs), a jövőbeli mentes", Insights.targetState(day: sat, entries: [], today: sat, targetHours: 8) == .inProgress && Insights.targetState(day: sun, entries: [], today: sat, targetHours: 8) == .exempt)
 check("szabadság mentes", Insights.targetState(day: mon, entries: [entry(.holiday)], today: today, targetHours: 8) == .exempt)
 check("mai nap folyamatban", Insights.targetState(day: today, entries: [entry(.meeting, secs: 3600)], today: today, targetHours: 8) == .inProgress)
 check("jövő mentes", Insights.targetState(day: d(2026, 10, 8), entries: [], today: today, targetHours: 8) == .exempt)
@@ -605,6 +608,144 @@ do {
     }
     w.orderOut(nil)
     UserDefaults.standard.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
+}
+
+// MARK: Hétvégi napok, Szabadnap egy kattintással, havi korlát
+
+section("Hétvége: jelzés és Szabadnap")
+do {
+    func e(_ type: ActivityType, _ day: String, secs: Int = 0, q: Int? = nil) -> Entry {
+        Entry(id: UUID(), date: day, start: nil, end: nil, durationSeconds: secs, workplace: type.isWholeDay ? type.shortLabel.uppercased() : "Győr", type: type.code, typeLabel: type.label, unit: type.unit.rawValue, quantity: q, activity: "", source: "manual")
+    }
+    // 2024–2035, minden negyedév minden hétvégéje
+    var weekendDays = 0
+    for year in 2024...2035 {
+        for q in 1...4 {
+            for sat in DateUtil.saturdays(year: year, quarter: q) {
+                let sun = DateUtil.addDays(sat, 1)
+                let later = DateUtil.addDays(sat, 3)   // „ma”: a hétvége után
+                let tag = "\(year)/Q\(q) \(ymd(sat))"
+                let sKey = ymd(sat), uKey = ymd(sun)
+                let ok = Insights.targetState(day: sat, entries: [], today: later, targetHours: 8) == .short
+                    && Insights.targetState(day: sun, entries: [], today: later, targetHours: 8) == .short
+                    && Insights.targetState(day: sat, entries: [e(.preaching, sKey, q: 1)], today: later, targetHours: 8) == .exempt
+                    && Insights.targetState(day: sun, entries: [e(.meeting, uKey, secs: 900)], today: later, targetHours: 8) == .exempt
+                    && Insights.targetState(day: sun, entries: [e(.dayOff, uKey)], today: later, targetHours: 8) == .exempt
+                    && Insights.targetState(day: sat, entries: [], today: sat, targetHours: 8) == .inProgress
+                    && Insights.targetState(day: sun, entries: [], today: sat, targetHours: 8) == .exempt
+                if !ok { check("hétvége \(tag)", false) }
+                weekendDays += 1
+            }
+        }
+    }
+    check("hétvégi jelzés 2024–2035 minden negyedév minden hétvégéjén (\(weekendDays) hétvége)", weekendDays > 600)
+    // a hétköznapi szabály változatlan
+    check("hétköznapon továbbra is a napi óraszám számít", Insights.targetState(day: d(2026, 10, 5), entries: [e(.meeting, "2026-10-05", secs: 3 * 3600)], today: d(2026, 10, 14), targetHours: 8) == .short && Insights.targetState(day: d(2026, 10, 5), entries: [e(.meeting, "2026-10-05", secs: 8 * 3600)], today: d(2026, 10, 14), targetHours: 8) == .reached)
+    // a hónap heteinek száma (a havi korlát): 28 nap = 4, 29–31 nap = 5
+    var weeksOK = true
+    for year in 2024...2035 {
+        for month in 1...12 {
+            let days = [1, 3, 5, 7, 8, 10, 12].contains(month) ? 31 : ([4, 6, 9, 11].contains(month) ? 30 : (DateUtil.date(year: year, month: 2, day: 29) != nil ? 29 : 28))
+            let expected = days == 28 ? 4 : 5
+            if Insights.weeksInMonth(year: year, month: month) != expected { weeksOK = false; check("hetek száma \(year)-\(month)", false, "\(Insights.weeksInMonth(year: year, month: month)) / \(expected)") }
+        }
+    }
+    check("a hónap heteinek száma 2024–2035 minden hónapra (szökőév is)", weeksOK)
+    check("érvénytelen hónapra sem omlik össze", Insights.weeksInMonth(year: 2026, month: 13) >= 4 && Insights.weeksInMonth(year: 0, month: 0) >= 4)
+
+    // Szabadnap egy kattintással
+    let sdir = tmp + "/dayoff"
+    try? FileManager.default.removeItem(atPath: sdir)
+    UserDefaults.standard.set(sdir + "/bejegyzesek.csv", forKey: "dataFile")
+    UserDefaults.standard.removeObject(forKey: "missing.lookback")
+    let dm = AppModel()
+    let sunday = d(2025, 10, 5)   // vasárnap, múltbeli
+    check("a kiválasztott nap vasárnap", DateUtil.isSunday(sunday))
+    check("üres napot Szabadnapnak lehet jelölni", dm.markDayOff(sunday))
+    let off = dm.entries.first { $0.date == "2025-10-05" }
+    check("a bejegyzés egész napos Szabadnap, a Munkahely SZABADNAP", off?.type == ActivityType.dayOff.code && off?.unit == Unit.wholeDay.rawValue && off?.workplace == "SZABADNAP" && off?.source == "manual" && off?.durationSeconds == 0)
+    check("a jelölés után a nap kitöltöttnek számít", Insights.targetState(day: sunday, entries: dm.entries(on: sunday), today: d(2025, 10, 8), targetHours: 8) == .exempt && !dm.missingDays(lookback: "365").contains { ymd($0) == "2025-10-05" })
+    dm.lastError = nil
+    check("kétszer nem jelöli ugyanazt a napot", !dm.markDayOff(sunday) && dm.entries.filter { $0.date == "2025-10-05" }.count == 1)
+    dm.lastError = nil
+    dm.add(e(.meeting, "2025-10-06", secs: 3600))
+    check("olyan napot, amelyen van bejegyzés, nem jelöl", !dm.markDayOff(d(2025, 10, 6)) && dm.entries.filter { $0.date == "2025-10-06" }.count == 1)
+    dm.lastError = nil
+    check("jövőbeli napot nem jelöl", !dm.markDayOff(DateUtil.addDays(Date(), 5)) && dm.lastError != nil)
+    dm.lastError = nil
+    check("a Szabadnap CSV-oda-vissza megmarad", (try? CSV.decode(CSV.encode(dm.entries)).entries.contains { $0.type == ActivityType.dayOff.code && $0.date == "2025-10-05" }) == true)
+
+    // az összes üres vasárnap egyszerre
+    let before = dm.entries.count
+    let expectedSundays = dm.missingDays(lookback: "30").filter { DateUtil.isSunday($0) }
+    let marked = dm.markEmptySundaysAsDayOff(lookback: "30")
+    check("az üres vasárnapokat mind megjelöli (és csak azokat)", marked == expectedSundays.count && dm.entries.count == before + marked && expectedSundays.allSatisfy { dm.entries(on: $0).contains { $0.type == ActivityType.dayOff.code } }, "\(marked) / \(expectedSundays.count)")
+    check("a tömeges jelölés után nincs üres vasárnap a tartományban", dm.missingDays(lookback: "30").filter { DateUtil.isSunday($0) }.isEmpty)
+    check("a tömeges jelölés után tájékoztató üzenet van (ha jelölt valamit)", marked == 0 || (dm.notice ?? "").contains("szabadnapnak jelölve"), dm.notice ?? "-")
+    check("egy nem vasárnapi üres nap érintetlen", dm.missingDays(lookback: "30").allSatisfy { !DateUtil.isSunday($0) })
+
+    // a havi korlát: legfeljebb annyi SZABADNAP, ahány hét van a hónapban (2025. október: 31 nap = 5)
+    let ldir = tmp + "/dayofflimit"
+    try? FileManager.default.removeItem(atPath: ldir)
+    UserDefaults.standard.set(ldir + "/bejegyzesek.csv", forKey: "dataFile")
+    let lm = AppModel()
+    for day in 1...5 { lm.markDayOff(d(2025, 10, day)) }
+    check("5 szabadnap egy 31 napos hónapban még rendben (nincs figyelmeztetés)", lm.notice == nil, lm.notice ?? "-")
+    lm.markDayOff(d(2025, 10, 6))
+    check("a hatodik szabadnapnál figyelmeztet a havi korlátra", (lm.notice ?? "").hasPrefix("Figyelem") && (lm.notice ?? "").contains("szabadnap") && (lm.notice ?? "").contains("5"), lm.notice ?? "-")
+    check("a figyelmeztetés nem akadályozza a rögzítést", lm.entries.filter { $0.type == ActivityType.dayOff.code }.count == 6)
+    lm.showNotice(nil)
+    // a munkaszüneti nap külön korlát
+    for day in 7...11 { lm.add(AppModel.wholeDayEntry(day: d(2025, 10, day), type: .publicHoliday, activity: "")) }
+    check("5 szabadnap után 5 munkaszüneti nap külön korlát: 5 még rendben", lm.notice == nil, lm.notice ?? "-")
+    lm.add(AppModel.wholeDayEntry(day: d(2025, 10, 12), type: .publicHoliday, activity: ""))
+    check("a hatodik munkaszüneti napnál is figyelmeztet", (lm.notice ?? "").contains("munkaszüneti nap"), lm.notice ?? "-")
+    // 28 napos február: legfeljebb 4
+    let fm28 = AppModel()
+    lm.showNotice(nil)
+    for day in 3...6 { lm.markDayOff(d(2025, 2, day)) }
+    check("február (28 nap): 4 szabadnap rendben", lm.notice == nil && lm.entries.filter { $0.type == ActivityType.dayOff.code && $0.date.hasPrefix("2025-02-") }.count == 4, lm.notice ?? "-")
+    lm.markDayOff(d(2025, 2, 7))
+    check("február (28 nap): az 5. szabadnapnál figyelmeztet", (lm.notice ?? "").hasPrefix("Figyelem"), lm.notice ?? "-")
+    _ = fm28
+    // a figyelmeztetés eltűnik, ha törlik
+    lm.showNotice(nil)
+    check("a notice törölhető", lm.notice == nil)
+    UserDefaults.standard.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
+}
+
+do {
+    // szemrevételezéshez: a kitöltetlen napok sora az új Szabadnap-gombokkal (képpé renderelve, ha az OTS_RENDER_DIR meg van adva)
+    if let dir = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"] {
+        let ud = UserDefaults.standard
+        ud.set(tmp + "/vis2/bejegyzesek.csv", forKey: "dataFile")
+        ud.set("30", forKey: "missing.lookback")
+        let vm = AppModel()
+        // néhány nap bejegyzéssel, a többi üres (köztük vasárnapok)
+        for back in [3, 6, 10] {
+            let day = DateUtil.addDays(Date(), -back)
+            vm.add(Entry(id: UUID(), date: ymd(day), start: nil, end: nil, durationSeconds: 3600, workplace: "Győr", type: ActivityType.meeting.code, typeLabel: "Értekezlet", unit: "ora", quantity: nil, activity: "x", source: "manual"))
+        }
+        vm.notice = "3 vasárnap szabadnapnak jelölve."
+        for (name, compactMode, width) in [("kitoltetlen-napok", false, 440), ("kitoltetlen-napok-kompakt", true, 340)] {
+            let h = NSHostingController(rootView: VStack(alignment: .leading, spacing: 8) {
+                MissingDaysView()
+                if let n = vm.notice { Text(n).font(.caption).foregroundStyle(Theme.warn) }
+            }.environmentObject(vm).environment(\.palette, .blue).environment(\.compact, compactMode).frame(width: CGFloat(width)).padding(12))
+            h.sizingOptions = []
+            let w = NSWindow(contentViewController: h)
+            w.appearance = NSAppearance(named: .aqua); w.backgroundColor = .white
+            w.setContentSize(NSSize(width: width + 24, height: 130)); w.makeKeyAndOrderFront(nil)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            if let cv = w.contentView, let rep = cv.bitmapImageRepForCachingDisplay(in: cv.bounds) {
+                cv.cacheDisplay(in: cv.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/" + name + ".png"))
+            }
+            w.orderOut(nil)
+        }
+        ud.removeObject(forKey: "missing.lookback")
+        ud.set(tmp + "/data/bejegyzesek.csv", forKey: "dataFile")
+    }
 }
 
 // MARK: Menüsori számláló: állandó szélesség
@@ -1571,23 +1712,21 @@ do {
     let rm = row(d(2026, 10, 5), mixed, rules: true)
     check("alkalom és fő összeadódik", rm.values[ActivityType.preaching.code] == 3 && rm.values[ActivityType.missionVisiting.code] == 2 && rm.values[ActivityType.meeting.code] == 5)
     check("10 szám: nincs kiegészítés és nincs !!!", rm.values[ActivityType.officeWork.code] == nil && !rm.workplace.hasPrefix("!!!"))
-    // szabályok nélkül nincs kiegészítés
+    // a sorokat a skill nem egészíti ki 8 órára (sem szabályokkal, sem nélkülük)
     let short = [tEntry(.meeting, secs: 3 * 3600, date: "2026-10-05")]
     check("szabályok nélkül nincs kiegészítés", row(d(2026, 10, 5), short).values == [ActivityType.meeting.code: 3] && row(d(2026, 10, 5), short).workplace == "Győr")
     let rf = row(d(2026, 10, 5), short, rules: true)
-    check("8-ra kiegészítés az Ügyintézésben", rf.values[ActivityType.officeWork.code] == 5 && rf.values[ActivityType.meeting.code] == 3)
-    check("Ügyintézés > 4: !!! előtag", rf.workplace == "!!! Győr", rf.workplace)
-    let rf2 = row(d(2026, 10, 5), [tEntry(.meeting, secs: 5 * 3600, date: "2026-10-05")], rules: true)
-    check("Ügyintézés 3: nincs !!!", rf2.values[ActivityType.officeWork.code] == 3 && rf2.workplace == "Győr")
-    let rsat = row(d(2026, 10, 10), [tEntry(.meeting, secs: 3 * 3600, date: "2026-10-10")], rules: true)
-    check("szombaton nincs kiegészítés és !!!", rsat.values[ActivityType.officeWork.code] == nil && rsat.workplace == "Győr")
+    check("bekapcsolt jelölésnél sincs 8-ra kiegészítés és !!! előtag", rf.values == [ActivityType.meeting.code: 3] && rf.workplace == "Győr", "\(rf.values) \(rf.workplace)")
+    let rsat = row(d(2026, 10, 10), [tEntry(.preaching, q: 1, date: "2026-10-10")], rules: true)
+    check("szombaton egyetlen bejegyzés is elég, kiegészítés nélkül", rsat.values == [ActivityType.preaching.code: 1] && rsat.workplace == "Győr")
     let rcap = row(d(2026, 10, 5), [tEntry(.meeting, secs: 10 * 3600, date: "2026-10-05")])
     check("legfeljebb 8", rcap.values[ActivityType.meeting.code] == 8 && !rcap.notes.isEmpty)
     // üres napok
     check("üres nap szabályok nélkül üres", row(d(2026, 10, 6), []).isEmpty)
     check("üres hétköznap: !!!", row(d(2026, 10, 6), [], rules: true).workplace == "!!!")
     check("üres szombat: !!!", row(d(2026, 10, 10), [], rules: true).workplace == "!!!")
-    check("üres vasárnap: SZABADNAP", row(d(2026, 10, 11), [], rules: true).workplace == "SZABADNAP")
+    check("üres vasárnap: !!! (nem magától szabadnap)", row(d(2026, 10, 11), [], rules: true).workplace == "!!!")
+    check("vasárnap Szabadnap bejegyzéssel: SZABADNAP", row(d(2026, 10, 11), [tEntry(.dayOff, date: "2026-10-11")], rules: true).workplace == "SZABADNAP")
     check("jövőbeli nap üres szabályokkal is", OTSManual.workRow(day: d(2026, 11, 5), entries: [], rules: true, today: d(2026, 11, 2)).isEmpty)
     // egész napos
     check("szabadnap", row(d(2026, 10, 6), [entry(.dayOff, date: "2026-10-06")], rules: true).workplace == "SZABADNAP")

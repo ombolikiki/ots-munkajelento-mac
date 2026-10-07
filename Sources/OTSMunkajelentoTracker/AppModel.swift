@@ -604,7 +604,10 @@ final class AppModel: ObservableObject {
         )
     }
 
-    func makeWholeDayEntry(day: Date) -> Entry {
+    func makeWholeDayEntry(day: Date) -> Entry { Self.wholeDayEntry(day: day, type: type, activity: trimmedActivity) }
+
+    /// Egész napos bejegyzés (Szabadság, Szabadnap, Munkaszüneti nap) a megadott típussal.
+    static func wholeDayEntry(day: Date, type: ActivityType, activity: String) -> Entry {
         Entry(
             id: UUID(),
             date: Fmt.dayFormatter.string(from: day),
@@ -614,9 +617,62 @@ final class AppModel: ObservableObject {
             typeLabel: type.label,
             unit: Unit.wholeDay.rawValue,
             quantity: nil,
-            activity: trimmedActivity,
+            activity: activity,
             source: "manual"
         )
+    }
+
+    // MARK: Szabadnap egy kattintással és a havi korlát
+
+    /// Rövid tájékoztató vagy figyelmeztetés a felületnek (például „3 vasárnap szabadnapnak jelölve”, vagy a havi korlát átlépése).
+    @Published var notice: String?
+    private var noticeToken = 0
+
+    func showNotice(_ text: String?) {
+        notice = text
+        noticeToken += 1
+        let token = noticeToken
+        guard text != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            if let self = self, self.noticeToken == token { self.notice = nil }
+        }
+    }
+
+    /// Egy üres nap Szabadnapnak jelölése. Nem jelöl jövőbeli napot, olyan napot, amelyen már van bejegyzés, és kétszer sem ugyanazt a napot.
+    /// Hibánál (és a havi korlát átlépésekor) a `notice`-ban és a `lastError`-ban jelez; igazat ad vissza, ha megtörtént a jelölés.
+    @discardableResult
+    func markDayOff(_ day: Date) -> Bool {
+        guard !isFuture(day) else { lastError = "Jövőbeli napot nem lehet szabadnapnak jelölni."; return false }
+        guard entries(on: day).isEmpty else { lastError = "Ezen a napon már van bejegyzés, ezért nem jelölöm szabadnapnak."; return false }
+        add(Self.wholeDayEntry(day: day, type: .dayOff, activity: ""))
+        return true
+    }
+
+    /// A kitöltetlen vasárnapok (a megadott visszatekintésben) Szabadnapnak jelölése. Visszaadja, hányat jelölt meg.
+    @discardableResult
+    func markEmptySundaysAsDayOff(lookback: String) -> Int {
+        let sundays = missingDays(lookback: lookback).filter { DateUtil.isSunday($0) }
+        var count = 0
+        for d in sundays where markDayOff(d) { count += 1 }
+        if count > 0 {
+            let limit = notice.map { $0.hasPrefix("Figyelem") ? " " + $0 : "" } ?? ""
+            showNotice("\(count) vasárnap szabadnapnak jelölve." + limit)
+        }
+        return count
+    }
+
+    /// A havi korlát ellenőrzése egy új egész napos bejegyzés után: legfeljebb annyi SZABADNAP és annyi MUNKASZÜNETI NAP lehet egy hónapban,
+    /// ahány hétből áll a hónap (az OTS lezárás előtt ezt ellenőrzi). Figyelmeztetés a `notice`-ban; nem akadályozza a rögzítést.
+    private func checkMonthlyLimit(after entry: Entry) {
+        guard entry.type == ActivityType.dayOff.code || entry.type == ActivityType.publicHoliday.code,
+              let d = Fmt.dayFormatter.date(from: entry.date) else { return }
+        let c = DateUtil.components(d)
+        let prefix = String(format: "%04d-%02d-", c.year, c.month)
+        let count = entries.filter { $0.type == entry.type && $0.date.hasPrefix(prefix) }.count
+        let limit = Insights.weeksInMonth(year: c.year, month: c.month)
+        guard count > limit else { return }
+        let name = entry.type == ActivityType.dayOff.code ? "szabadnap" : "munkaszüneti nap"
+        showNotice("Figyelem: ebben a hónapban \(count) \(name) van, az OTS legfeljebb \(limit)-t enged (a hónap heteinek száma). A hónap lezárása előtt javítani kell.")
     }
 
     func commitPending() {
@@ -654,6 +710,7 @@ final class AppModel: ObservableObject {
         entries.append(entry)
         entries.sort { sortKey($0) < sortKey($1) }
         save()
+        checkMonthlyLimit(after: entry)
     }
 
     func delete(_ id: UUID) {

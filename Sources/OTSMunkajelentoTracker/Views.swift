@@ -219,6 +219,9 @@ struct ContentView: View {
             }
             if let err = m.lastError {
                 Text(err).font(.caption).foregroundStyle(.red)
+            } else if let note = m.notice {
+                Text(note).font(.caption).foregroundStyle(Theme.warn)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -1013,8 +1016,10 @@ struct DayListView: View {
     /// Kis jelzés a dátum mellett: piros = nincs meg a napi óraszám, narancs = a mai nap még folyamatban, zöld pipa = megvan.
     @ViewBuilder private var targetDot: some View {
         switch state {
-        case .short: Circle().fill(Theme.stop).frame(width: 8, height: 8).help("Még nincs meg a napi \(m.targetHours) óra")
-        case .inProgress: Circle().fill(Theme.warn).frame(width: 8, height: 8).help("A mai napon még nincs meg a napi \(m.targetHours) óra")
+        case .short: Circle().fill(Theme.stop).frame(width: 8, height: 8)
+            .help(DateUtil.isWeekday(m.selectedDay) ? "Még nincs meg a napi \(m.targetHours) óra" : "Üres hétvégi nap: rögzíts bejegyzést, vagy jelöld Szabadnapnak (bármilyen bejegyzés elég, hétvégén nincs napi óraszám)")
+        case .inProgress: Circle().fill(Theme.warn).frame(width: 8, height: 8)
+            .help(DateUtil.isWeekday(m.selectedDay) ? "A mai napon még nincs meg a napi \(m.targetHours) óra" : "A mai napon még nincs bejegyzés")
         case .reached: Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(Theme.go).help("Megvan a napi \(m.targetHours) óra")
         case .exempt: EmptyView()
         }
@@ -1022,7 +1027,7 @@ struct DayListView: View {
 
     @ViewBuilder private func totalLine(all: Int) -> some View {
         let official = m.officialSeconds(on: m.selectedDay)
-        if state == .exempt {
+        if state == .exempt || !DateUtil.isWeekday(m.selectedDay) {
             Text("Összesen: \(Fmt.hm(all))").font(.caption).foregroundStyle(.secondary)
                 .help("1 fő és 1 alkalom is 1 órának számít")
         } else {
@@ -1128,6 +1133,18 @@ struct MissingDaysView: View {
                     .foregroundStyle(nothing ? Theme.go : Theme.warn)
                 title(missing: missing.count, short: short.count, attendance: attendance.count)
                 Spacer()
+                let sundays = missing.filter { DateUtil.isSunday($0) }.count
+                if sundays > 0 {
+                    Button { m.markEmptySundaysAsDayOff(lookback: lookback) } label: {
+                        Label(compact ? "\(sundays)" : "Vasárnapok → szabadnap (\(sundays))", systemImage: "moon.zzz")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(Capsule().fill(Theme.warn.opacity(0.18)))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Az összes kitöltetlen vasárnap (\(MissingDaysView.label(for: lookback))) szabadnapnak jelölése")
+                }
                 if !compact {
                     Text(MissingDaysView.label(for: lookback)).font(.caption2).foregroundStyle(.secondary)
                 }
@@ -1169,7 +1186,7 @@ struct MissingDaysView: View {
         let selected = Calendar.current.isDate(d, inSameDayAs: m.selectedDay)
             && (kind == .attendance || m.mode == .manual)
         let tint: Color = kind == .missing ? Theme.warn : (kind == .short ? Theme.stop : Color.purple)
-        return Button {
+        let main = Button {
             m.selectedDay = d
             if kind != .attendance { m.mode = .manual }
         } label: {
@@ -1182,13 +1199,30 @@ struct MissingDaysView: View {
                     Text(Fmt.hm(m.officialSeconds(on: d))).font(.caption2).monospacedDigit().foregroundStyle(selected ? Color.white : Color.secondary)
                 }
             }
-            .padding(.horizontal, 9).padding(.vertical, 4)
-            .foregroundStyle(selected ? Color.white : Color.primary)
-            .background(Capsule().fill(selected ? AnyShapeStyle(palette.gradient) : AnyShapeStyle(tint.opacity(0.18))))
-            .contentShape(Capsule())
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(kind == .missing ? "Kitöltetlen nap" : (kind == .short ? "Nincs meg a napi \(m.targetHours) óra" : "Létszámjelentő esedékes"))
+        return HStack(spacing: 5) {
+            main
+            if kind == .missing {
+                // egykattintásos jelölés: ha ezen a napon pihentél, ne kelljen megnyitni a Kézi bevitelt
+                Button { m.markDayOff(d) } label: {
+                    Image(systemName: "moon.zzz").font(.system(size: 9.5, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Szabadnapnak jelölöm ezt a napot")
+            }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 4)
+        .foregroundStyle(selected ? Color.white : Color.primary)
+        .background(Capsule().fill(selected ? AnyShapeStyle(palette.gradient) : AnyShapeStyle(tint.opacity(0.18))))
+        .contextMenu {
+            if kind == .missing {
+                Button("Szabadnapnak jelölöm") { m.markDayOff(d) }
+                Button("Megnyitás a Kézi bevitelben") { m.selectedDay = d; m.mode = .manual }
+            }
+        }
     }
 
     static func label(for key: String) -> String {
