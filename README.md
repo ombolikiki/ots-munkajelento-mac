@@ -1,4 +1,4 @@
-# OTS Munkajelentő Tracker (1.7.0)
+# OTS Munkajelentő Tracker (1.8.0)
 
 Menüsori időmérő Macre (macOS 14 vagy újabb). A bejegyzéseit a „OTS Adminisztráció” skill (`ots-adminisztracio`) olvassa a Havi munkajelentőhöz és a Költségelszámoláshoz.
 
@@ -38,6 +38,14 @@ A forráskód és a dokumentáció az [MIT licenc](LICENSE) alatt áll: szabadon
 ## Verziótörténet
 
 A legújabb verzió van elöl.
+
+### 1.8.0
+
+- **Ünnepnap és Pihenőnap** (`ActivityType.feastDay/restDay`, `HuHolidays.swift`, `AppModel.markFeastDay`): új egész napos típusok; az OTS-be `ÜNNEPNAP - <NÉV>` / `PIHENŐNAP - <LEÍRÁS>` kerül (nagybetűvel, `AppModel.wholeDayWorkplace`; `OTSManual.workRow` a típus és a Tevékenység alapján). Gomb a magyar munkaszüneti napokon (kitöltetlen napok, Kézi bevitel). Munka mellett is felvehető; ilyen napra nincs 8 óra; a havi korlátba nem számít.
+- **Fordított út** (`AppModel+Travel.swift`): a napon belüli következő Utazás alapból az előző fordítottja (címekkel, a Tevékenység átvételével); **Oda-vissza alapból kikapcsolt**.
+- **Szabad szöveges rögzítés** (`ImportReview.swift`, skill: `references/szabad-szoveg.md`): az MI-asszisztens az adatfájl melletti `bejegyzesek-import.csv`-be ír (`Forrás = ai`), az app áttekintő ablakban mutatja (fejléc-ikon, értesítés); csak jóváhagyás után kerül az adatok közé. Ellenőrzés: kötelező mezők, jövőbeli időpont, duplikátum, átfedés. A teszt a skill Python-kódját is lefuttatja.
+- **Javítás:** a javaslatlista a kártya fölött (a kártya kerete háttér lett), a legkisebb képernyőn a napi lista magassági korlátja.
+- CSV nem változott (új típuskódok és a `ai` forrás).
 
 ### 1.7.0
 

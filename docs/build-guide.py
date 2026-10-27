@@ -87,7 +87,10 @@ while i < len(lines):
             buf.append(lines[i]); i += 1
         body.append(f"<p>{inline(' '.join(buf))}</p>")
 
-toc_html = "<nav><strong>Tartalom</strong><ol>" + "".join(f'<li><a href="#{a}">{inline(re.sub(r"^\d+\. ", "", t))}</a></li>' for a, t in toc) + "</ol></nav>"
+def toc_item(a, t):
+    title = re.sub(r"^\d+\. ", "", t)
+    return f'<li><a href="#{a}">{inline(title)}</a></li>'
+toc_html = "<nav><strong>Tartalom</strong><ol>" + "".join(toc_item(a, t) for a, t in toc) + "</ol></nav>"
 # a tartalomjegyzék az első blockquote (összefoglaló) után kerül
 idx = next((k for k, b in enumerate(body) if b.startswith("<blockquote")), 1)
 body.insert(idx + 1, toc_html)

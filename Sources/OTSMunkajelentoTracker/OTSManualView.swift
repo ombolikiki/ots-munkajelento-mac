@@ -275,6 +275,8 @@ struct OTSManualView: View {
         var chips: [Chip] = []
         if r.holiday { chips.append(Chip(text: "Szabadság", color: CategoryColors.color(code: ActivityType.holiday.code))) }
         if r.workplace == "SZABADNAP" { chips.append(Chip(text: "Szabadnap", color: CategoryColors.color(code: ActivityType.dayOff.code))) }
+        if r.workplace.hasPrefix("ÜNNEPNAP") { chips.append(Chip(text: "Ünnepnap", color: CategoryColors.color(code: ActivityType.feastDay.code))) }
+        if r.workplace.hasPrefix("PIHENŐNAP") { chips.append(Chip(text: "Pihenőnap", color: CategoryColors.color(code: ActivityType.restDay.code))) }
         if r.workplace == "MUNKASZÜNETI NAP" { chips.append(Chip(text: "Munkaszüneti nap", color: CategoryColors.color(code: ActivityType.publicHoliday.code))) }
         for t in OTSManual.columns {
             if let v = r.values[t.code] {

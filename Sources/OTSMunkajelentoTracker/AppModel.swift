@@ -20,6 +20,7 @@ final class AppModel: ObservableObject {
             if type.hasQuantity == false { quantity = 1 }
             if selectedType?.isTravel == true {
                 if departure.isEmpty { departure = homePlace }
+                prefillReverseTrip()
             }
         }
     }
@@ -40,8 +41,10 @@ final class AppModel: ObservableObject {
     /// Utazásnál a Cél: egy vagy több hely, vesszővel elválasztva, akár pontos címmel is (Tata, Fő út 1., Mór).
     @Published var destination: String { didSet { ud.set(destination, forKey: "draft.destination") } }
     @Published var quantity: Int { didSet { ud.set(quantity, forKey: "draft.quantity") } }
+    /// A legutóbb automatikusan kitöltött (fordított út) Kiindulás, Cél és Tevékenység: amíg a felhasználó nem írja át, a kitöltés a nap váltásakor követi a napot.
+    var travelAuto: (dep: String, dest: String, act: String)?
     /// Utazásnál: oda-vissza út (a munka után visszatértem a Kiindulásra). Alapból bejelölt; minden rögzítés után újra az.
-    @Published var roundTrip = true
+    @Published var roundTrip = false
     /// Utazásnál: igaz, ha a Kiindulás volt a munkahely, hamis, ha a Cél (alapból a Cél).
     @Published var workplaceIsDeparture = false
     /// Utazásnál (opcionális): a kilométeróra állása az út elején és végén (szövegként, ahogy a mezőbe írták).
@@ -56,11 +59,11 @@ final class AppModel: ObservableObject {
     var attendanceFileURL: URL { dataFileURL.deletingLastPathComponent().appendingPathComponent("letszamjelentesek.csv") }
 
     // MARK: Felület állapota
-    @Published var mode: Mode = .timer
+    @Published var mode: Mode = .timer { didSet { prefillReverseTrip() } }
     /// Nyitva van-e a Pomodoro-beállítások panel (ilyenkor a napi lista és a hiányzó napok rejtve vannak, hogy az ablak ne nőjön túl magasra).
     @Published var pomoSettingsOpen = false
     /// A napi lista és a Kézi bevitel közös napja.
-    @Published var selectedDay = Date()
+    @Published var selectedDay = Date() { didSet { prefillReverseTrip() } }
 
     // MARK: Naptár
     struct PendingSlot: Equatable {
@@ -91,6 +94,11 @@ final class AppModel: ObservableObject {
     private var pomoPhaseStart = Date()
     /// A futó munkamenet kezdete (nil, ha nincs; a „szünet is munkaidő” módban egy munkamenet = egy bejegyzés).
     @Published private(set) var pomoSessionStart: Date?
+    /// Szabad szöveggel felvitt, áttekintésre váró bejegyzések (az adatfájl melletti `bejegyzesek-import.csv`; lásd `ImportReview.swift`).
+    @Published var importItems: [ImportItem] = []
+    @Published var importNotes: [String] = []
+    var importFileStamp: Date?
+    private var importTick = 0
     private var pomoTemplate: Entry?
     private var pomoLastAlive = Date()
     private var lastPomoTick: Date?
@@ -172,6 +180,7 @@ final class AppModel: ObservableObject {
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
         ) { _ in AppearanceManager.apply() }
         recoverPomoSession()
+        refreshImport(announce: false)
         writePointer()
         requestNotificationPermission()
 
@@ -180,7 +189,7 @@ final class AppModel: ObservableObject {
         }
         keyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.reloadIfChanged(); self?.reloadAttendanceIfChanged(); self?.calendarSyncIfEnabled(); self?.refreshSkillUpdate() }
+        ) { [weak self] _ in self?.reloadIfChanged(); self?.reloadAttendanceIfChanged(); self?.calendarSyncIfEnabled(); self?.refreshSkillUpdate(); self?.refreshImport() }
         StatusMenuController.shared.install(model: self)
         DispatchQueue.main.async { [weak self] in self?.refreshSkillUpdate() }
         if ud.bool(forKey: "ekcal.enabled") {
@@ -281,7 +290,7 @@ final class AppModel: ObservableObject {
         activity = ""
         departure = ""
         destination = ""
-        roundTrip = true
+        roundTrip = false
         workplaceIsDeparture = false
         quantity = 1
         selectedType = nil
@@ -609,6 +618,8 @@ final class AppModel: ObservableObject {
     private var lastDayKey = ""
 
     func tick() {
+        importTick += 1
+        if importTick % 5 == 0 { refreshImport() }
         // Napváltáskor frissülnek a napi jelzések (kitöltetlen napok, emlékeztető ikon).
         let key = Fmt.dayFormatter.string(from: Date())
         if key != lastDayKey {
@@ -724,13 +735,22 @@ final class AppModel: ObservableObject {
 
     func makeWholeDayEntry(day: Date) -> Entry { Self.wholeDayEntry(day: day, type: type, activity: trimmedActivity) }
 
-    /// Egész napos bejegyzés (Szabadság, Szabadnap, Munkaszüneti nap) a megadott típussal.
+    /// Az egész napos bejegyzés Munkahely értéke (az OTS Munkahely mezőjébe ez kerül): `SZABADNAP`, `MUNKASZÜNETI NAP`, …; az Ünnepnapnál és a
+    /// Pihenőnapnál `ÜNNEPNAP - <NÉV>` illetve `PIHENŐNAP - <LEÍRÁS>` (nagybetűvel; leírás nélkül csak a típus neve).
+    static func wholeDayWorkplace(type: ActivityType, note: String) -> String {
+        let base = type.shortLabel.uppercased()
+        guard type.code == ActivityType.feastDay.code || type.code == ActivityType.restDay.code else { return base }
+        let n = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        return n.isEmpty ? base : base + " - " + n.uppercased()
+    }
+
+    /// Egész napos bejegyzés (Szabadság, Szabadnap, Munkaszüneti nap, Ünnepnap, Pihenőnap) a megadott típussal.
     static func wholeDayEntry(day: Date, type: ActivityType, activity: String) -> Entry {
         Entry(
             id: UUID(),
             date: Fmt.dayFormatter.string(from: day),
             start: nil, end: nil, durationSeconds: 0,
-            workplace: type.shortLabel.uppercased(),
+            workplace: wholeDayWorkplace(type: type, note: activity),
             type: type.rawValue,
             typeLabel: type.label,
             unit: Unit.wholeDay.rawValue,
@@ -763,6 +783,24 @@ final class AppModel: ObservableObject {
         guard !isFuture(day) else { lastError = "Jövőbeli napot nem lehet szabadnapnak jelölni."; return false }
         guard entries(on: day).isEmpty else { lastError = "Ezen a napon már van bejegyzés, ezért nem jelölöm szabadnapnak."; return false }
         add(Self.wholeDayEntry(day: day, type: .dayOff, activity: ""))
+        return true
+    }
+
+    /// A nap ünnepének neve (magyar munkaszüneti nap), ha van.
+    func holidayName(on day: Date) -> String? { HuHolidays.name(on: day) }
+
+    /// Igaz, ha a napra már van Ünnepnap bejegyzés.
+    func hasFeastDay(on day: Date) -> Bool { entries(on: day).contains { $0.type == ActivityType.feastDay.code } }
+
+    /// Ünnepnap bejegyzés felvétele az ünnepnapra (a Tevékenységben az ünnep hivatalos neve; az OTS-be `ÜNNEPNAP - <NÉV>` kerül). Felvehető akkor is,
+    /// ha a napon van munkabejegyzés (ünnepnapon dolgoztak): az Ünnepnap-bejegyzéssel rendelkező napra a napi óraszám nem vonatkozik. Kétszer nem vehető fel,
+    /// jövőbeli napra és nem ünnepnapra nem. Igazat ad vissza, ha megtörtént a felvétel.
+    @discardableResult
+    func markFeastDay(_ day: Date) -> Bool {
+        guard !isFuture(day) else { lastError = "Jövőbeli napot nem lehet ünnepnapnak jelölni."; return false }
+        guard let name = holidayName(on: day) else { lastError = "Ez a nap nem munkaszüneti nap, ezért nem jelölöm ünnepnapnak (a Pihenőnap típussal kézzel jelölheted)."; return false }
+        guard !hasFeastDay(on: day) else { lastError = "Erre a napra már van Ünnepnap bejegyzés."; return false }
+        add(Self.wholeDayEntry(day: day, type: .feastDay, activity: name))
         return true
     }
 
@@ -1075,6 +1113,9 @@ final class AppModel: ObservableObject {
         guard name != Sounds.none else { return }
         NSSound(named: NSSound.Name(name))?.play()
     }
+
+    /// Értesítés hanggal (másik fájlból is hívható).
+    func announce(title: String, body: String) { notify(title: title, body: body, soundKey: "sound.breakEnd") }
 
     private func notify(title: String, body: String, soundKey: String) {
         playSound(ud.string(forKey: soundKey) ?? "Glass")

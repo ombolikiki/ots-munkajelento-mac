@@ -71,6 +71,7 @@ struct SkillTaskInfo: Decodable, Identifiable, Hashable {
         case "nevsor": return "Negyedéves névsor lezárása gyülekezetenként."
         case "hittan": return "Félévente a hitoktatás lezárása gyülekezetenként."
         case "latogatottsag": return "Létszámjelentő kitöltése a rögzített létszámokból."
+        case "szabad": return "Bejegyzések felvitele szabad szövegből („Ma 9–10 között adminisztráltam”): az asszisztens kérdez, te jóváhagyod az alkalmazásban."
         default: return ""
         }
     }
@@ -291,7 +292,7 @@ final class SkillInstaller: ObservableObject {
         t = lines.joined(separator: "\n")
 
         // 2) közös (tracker-adat) szakasz: csak ha olyan feladat is van, ami használja
-        let usesTracker = !selectedTasks.isDisjoint(with: ["havi", "koltseg", "latogatottsag"])
+        let usesTracker = !selectedTasks.isDisjoint(with: ["havi", "koltseg", "latogatottsag", "szabad"])
         if usesTracker {
             t = t.replacingOccurrences(of: "[[SHARED:tracker]]", with: "").replacingOccurrences(of: "[[/SHARED]]", with: "")
         } else if let regex = try? NSRegularExpression(pattern: "\\[\\[SHARED:tracker\\]\\].*?\\[\\[/SHARED\\]\\]\\n*", options: [.dotMatchesLineSeparators]) {

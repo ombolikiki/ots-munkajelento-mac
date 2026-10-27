@@ -162,9 +162,9 @@ try? FileManager.default.removeItem(atPath: tmp + "/data")
 UserDefaults.standard.set("Székesfehérvár", forKey: "home")
 let m = AppModel()
 m.selectedType = .travel
-check("utazás: a kiindulás alapja a székhely, a cél üres", m.departure == "Székesfehérvár" && m.destination.isEmpty && m.roundTrip && !m.workplaceIsDeparture)
+check("utazás: a kiindulás alapja a székhely, a cél üres", m.departure == "Székesfehérvár" && m.destination.isEmpty && !m.roundTrip && !m.workplaceIsDeparture)
 check("utazás: cél és tevékenység kell", !m.fieldsComplete && (m.missingFieldsHint ?? "").contains("Cél"))
-m.destination = " Tata ,Mór, ,"; m.activity = "Kiszállás"
+m.destination = " Tata ,Mór, ,"; m.activity = "Kiszállás"; m.roundTrip = true
 check("utazás: teljes", m.fieldsComplete && m.travelPlan?.stops.map { $0.settlement } == ["Tata", "Mór"])
 let start = Date().addingTimeInterval(-3600)
 m.add(m.makeEntry(start: start, end: start.addingTimeInterval(1800), source: "manual"))
@@ -172,7 +172,7 @@ let saved = m.entries.last
 check("utazás bejegyzés mezői", saved?.departure == "Székesfehérvár" && saved?.arrival == "Székesfehérvár" && saved?.workplace == "Tata, Mór")
 check("minden utazási hely bekerült a listába", ["Tata", "Mór", "Székesfehérvár"].allSatisfy { p in m.places.contains(p) })
 m.clearDraft()
-check("clearDraft: kiindulás és cél is üres, az oda-vissza újra bejelölt", m.departure.isEmpty && m.destination.isEmpty && m.roundTrip && !m.workplaceIsDeparture && m.selectedType == nil)
+check("clearDraft: kiindulás és cél is üres, az oda-vissza alapból kikapcsolt", m.departure.isEmpty && m.destination.isEmpty && !m.roundTrip && !m.workplaceIsDeparture && m.selectedType == nil)
 m.selectedType = .meeting
 check("nem utazásnál nem kell indulás", m.departure.isEmpty)
 m.clearDraft()
@@ -226,7 +226,7 @@ if ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"] != nil, ProcessInfo.p
     }
 
     let inst = SkillInstaller(model: m)
-    check("tasks.json: öt feladat", inst.tasks.count == 5 && Set(inst.tasks.map { $0.id }) == ["havi", "koltseg", "nevsor", "hittan", "latogatottsag"])
+    check("tasks.json: hat feladat", inst.tasks.count == 6 && Set(inst.tasks.map { $0.id }) == ["havi", "koltseg", "nevsor", "hittan", "latogatottsag", "szabad"])
     check("a csomag azonosítója stabil", inst.bundledFingerprint() == inst.bundledFingerprint() && inst.bundledFingerprint() != nil)
 
     // érvényesítés
@@ -256,7 +256,7 @@ if ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"] != nil, ProcessInfo.p
     let skill1 = text(SkillInstaller.skillDir(for: .claude).appendingPathComponent("SKILL.md"))
     check("név, gyülekezetek, székhely a SKILL.md-ben", skill1.contains("Kovács János & Társa $1") && skill1.contains("Székesfehérvár, Mór, Bicske") && skill1.contains("Székhely (a költségelszámolás útvonalainak kiindulópontja): Székesfehérvár"))
     check("Claude: beépített böngésző szövege", skill1.contains("mcp__Claude_Browser__"))
-    check("mind az öt feladat sora megvan", ["Havi munkajelentő", "Költségelszámolás", "Gyülekezeti névsor", "Hitoktatás", "Gyülekezeti látogatottság"].allSatisfy { skill1.contains($0) })
+    check("mind a hat feladat sora megvan", ["Havi munkajelentő", "Költségelszámolás", "Gyülekezeti névsor", "Hitoktatás", "Gyülekezeti látogatottság", "Bejegyzések felvitele szabad szövegből"].allSatisfy { skill1.contains($0) })
     check("közös adatforrás-szakasz megvan", skill1.contains("tracker-adatforras.md"))
     let lat = text(SkillInstaller.skillDir(for: .claude).appendingPathComponent("references/latogatottsag.md"))
     check("létszámjelentő: tracker + soha nem talál ki számot", lat.contains("letszamjelentesek.csv") && lat.contains("Soha ne írj be kitalált") && !lat.contains("±3"))
@@ -266,7 +266,7 @@ if ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"] != nil, ProcessInfo.p
     check("jelölő a telepítésen: feladatok és célok", {
         let d = (try? Data(contentsOf: SkillInstaller.skillDir(for: .claude).appendingPathComponent(SkillInstaller.markerName))) ?? Data()
         let o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
-        return (o?["tasks"] as? [String])?.count == 5 && (o?["targets"] as? [String]) == ["claude"]
+        return (o?["tasks"] as? [String])?.count == 6 && (o?["targets"] as? [String]) == ["claude"]
     }())
     check("állapot: naprakész", inst.status[.claude] == .upToDate)
 
@@ -1545,11 +1545,12 @@ do {
     let am = AppModel()
     am.clearDraft()
     am.selectedType = .travel
-    check("utazás: a kiindulás alapja a székhely; az oda-vissza alapból bekapcsolt; a munkahely alapból a Cél", am.departure == "Győr" && am.roundTrip && !am.workplaceIsDeparture)
+    check("utazás: a kiindulás alapja a székhely; az oda-vissza alapból kikapcsolt; a munkahely alapból a Cél", am.departure == "Győr" && !am.roundTrip && !am.workplaceIsDeparture)
     am.activity = "Kiszállás"
     let st = Date().addingTimeInterval(-3600)
     func entry() -> Entry { am.makeEntry(start: st, end: st.addingTimeInterval(1800), source: "manual") }
-    // 1. Oda-vissza (alapból): Kiindulás -> Cél -> Kiindulás
+    // 1. Oda-vissza (a pipa bejelölve): Kiindulás -> Cél -> Kiindulás
+    am.roundTrip = true
     am.departure = "Győr"; am.destination = "Tata"
     var e = entry()
     check("oda-vissza: Győr - Tata - Győr", am.fieldsComplete && OTSManual.routePoints(e, home: "X") == ["Győr", "Tata", "Győr"] && e.departure == "Győr" && e.arrival == "Győr" && e.workplace == "Tata" && !e.workplaceIsDeparture, "\(OTSManual.routePoints(e, home: "X"))")
@@ -1637,10 +1638,10 @@ do {
     tm.plannedStart = nowT.addingTimeInterval(-60)
     tm.startStopwatch()
     let started = tm.timerStart
-    check("indítás előre megadott kezdéssel: onnantól számol", tm.stopwatchRunning && started != nil && abs((started ?? .distantFuture).timeIntervalSince(nowT) + 60) < 3 && tm.stopwatchElapsed >= 59 && tm.plannedStart == nil, "\(tm.stopwatchElapsed)")
+    check("indítás előre megadott kezdéssel: onnantól számol", tm.stopwatchRunning && started != nil && (abs((started ?? .distantFuture).timeIntervalSince(nowT) + 60) < 3 && tm.stopwatchElapsed >= 59 || nowT.timeIntervalSince(dayStartT) < 120) && tm.plannedStart == nil, "\(tm.stopwatchElapsed)")
     // futó időzítő kezdésének korrigálása
     tm.setTimerStart(nowT.addingTimeInterval(-120))
-    check("futó időzítő kezdésének korrigálása", abs((tm.timerStart ?? .distantFuture).timeIntervalSince(nowT) + 120) < 3 && tm.stopwatchElapsed >= 119)
+    check("futó időzítő kezdésének korrigálása", abs((tm.timerStart ?? .distantFuture).timeIntervalSince(nowT) + 120) < 3 && tm.stopwatchElapsed >= 119 || nowT.timeIntervalSince(dayStartT) < 180)
     tm.setTimerStart(nowT.addingTimeInterval(3600))
     check("a futó időzítő kezdése nem lehet jövőbeli", (tm.timerStart ?? .distantFuture) <= Date())
     tm.setTimerStart(dayStartT.addingTimeInterval(-86400 * 3))
@@ -2250,6 +2251,339 @@ do {
     om.handleSleep()
     check("régi módban az altatás is menti a futó pomo eltelt idejét", pomoEntries(om).count == before9 + 2 && pomoEntries(om).last?.durationSeconds == 30)
     for k in ["pomo.work", "pomo.short", "pomo.long", "pomo.every", "pomo.merge", "pomo.autoWork", "pomo.session", "draft.workplace", "draft.type", "draft.activity"] { ud.removeObject(forKey: k) }
+}
+
+// MARK: Utazás: a napon belüli következő út alapból az előző fordítottja (1.8.0)
+
+section("Utazás: fordított út")
+do {
+    let ud = UserDefaults.standard
+    let rdir = tmp + "/forditott"
+    try? FileManager.default.removeItem(atPath: rdir)
+    ud.set(rdir + "/bejegyzesek.csv", forKey: "dataFile")
+    ud.set("Győr", forKey: "home")
+    for k in ["draft.departure", "draft.destination", "draft.activity", "draft.type"] { ud.removeObject(forKey: k) }
+    let rm = AppModel()
+    rm.clearDraft()
+    func trip(dep: String, dest: String, act: String, round: Bool, at: Date) {
+        rm.selectedType = .travel
+        rm.departure = dep; rm.destination = dest; rm.activity = act; rm.roundTrip = round
+        rm.add(rm.makeEntry(start: at, end: at.addingTimeInterval(1800), source: "manual"))
+        rm.clearDraft()
+    }
+    let t0 = DateUtil.startOfDay(Date()).addingTimeInterval(3600)   // a mai napon belül, napszaktól függetlenül (az éjfél körüli futás sem bukhat el)
+    check("alapból egyirányú (az Oda-vissza kikapcsolt)", !rm.roundTrip)
+    // 1. nincs még út a napon: a székhely, a Cél üres
+    rm.selectedType = .travel
+    check("a napon még nincs út: a Kiindulás a székhely, a Cél és a Tevékenység üres", rm.departure == "Győr" && rm.destination.isEmpty && rm.activity.isEmpty)
+    rm.clearDraft()
+    // 2. egyirányú út után a fordítottja
+    trip(dep: "Győr", dest: "Nyúl", act: "Pénztár revízió", round: false, at: t0)
+    rm.selectedType = .travel
+    check("Győr - Nyúl után Nyúl - Győr a javaslat, a Tevékenység átvéve", rm.departure == "Nyúl" && rm.destination == "Győr" && rm.activity == "Pénztár revízió", "\(rm.departure) - \(rm.destination) / \(rm.activity)")
+    check("a javasolt fordított út rögzíthető", rm.fieldsComplete)
+    // átírható; átírás után a nap váltása sem írja felül
+    rm.destination = "Tata"
+    rm.selectedDay = DateUtil.addDays(Date(), -1)
+    check("a felhasználó által átírt Cél nem íródik felül", rm.destination == "Tata")
+    rm.selectedDay = Date()
+    rm.clearDraft()
+    // 3. több helyes Cél: teljes fordított útvonal; pontos címek is
+    rm.clearDraft()
+    trip(dep: "Győr, Fő út 1.", dest: "Tata, Kossuth u. 5., Mór", act: "Kiszállás", round: false, at: t0.addingTimeInterval(3600))
+    rm.selectedType = .travel
+    check("több helyes úton a teljes fordított útvonal, a címekkel", rm.departure == "Mór" && rm.destination == "Tata, Kossuth u. 5., Győr, Fő út 1.", "\(rm.departure) - \(rm.destination)")
+    rm.clearDraft()
+    // 4. oda-vissza út után nincs fordítás (a Kiindulás a székhely)
+    let dir2 = tmp + "/forditott2"
+    try? FileManager.default.removeItem(atPath: dir2)
+    ud.set(dir2 + "/bejegyzesek.csv", forKey: "dataFile")
+    let rm2 = AppModel()
+    rm2.clearDraft()
+    rm2.selectedType = .travel
+    rm2.departure = "Győr"; rm2.destination = "Tata"; rm2.activity = "Oda-vissza"; rm2.roundTrip = true
+    rm2.add(rm2.makeEntry(start: t0, end: t0.addingTimeInterval(1800), source: "manual"))
+    rm2.clearDraft()
+    rm2.selectedType = .travel
+    check("oda-vissza út után nincs fordítás: a Kiindulás a székhely, a Cél üres", rm2.departure == "Győr" && rm2.destination.isEmpty && rm2.activity.isEmpty)
+    // 5. a fordított út pontos szövege
+    var e = rm2.entries[0]
+    e.arrival = "Tata"; e.address = "Fő út 1., Tata"; e.departureAddress = "Kossuth u. 2., Győr"
+    let rev = AppModel.reverseTrip(of: e, home: "Győr")
+    check("a fordított út szövege címekkel: Tata, Fő út 1. - Győr, Kossuth u. 2.", rev?.departure == "Tata, Fő út 1." && rev?.destination == "Győr, Kossuth u. 2.", "\(String(describing: rev))")
+    // 6. másik nap: a kézi bevitel napjának váltásakor a javaslat követi a napot
+    rm.selectedType = nil; rm.clearDraft()
+    rm.mode = .manual
+    rm.selectedDay = Date()
+    rm.selectedType = .travel
+    let todayRev = rm.departure
+    rm.selectedDay = DateUtil.addDays(Date(), -3)
+    check("üres napra váltva a javaslat visszaáll az alapra (székhely, üres Cél)", todayRev != "Győr" && rm.departure == "Győr" && rm.destination.isEmpty && rm.activity.isEmpty, "\(rm.departure) - \(rm.destination)")
+    rm.mode = .timer
+    ud.removeObject(forKey: "home")
+}
+
+// MARK: A Tevékenység javaslatlistája a mező alatti kártya (Rögzítés gomb) fölött (1.8.0)
+
+section("Javaslatlista a Rögzítés gomb fölött")
+do {
+    let ud = UserDefaults.standard
+    ud.removeObject(forKey: "suggest.enabled")
+    let gdir = tmp + "/gomb-felett"
+    try? FileManager.default.removeItem(atPath: gdir)
+    ud.set(gdir + "/bejegyzesek.csv", forKey: "dataFile")
+    for k in ["draft.workplace", "draft.type", "draft.activity", "compact"] { ud.removeObject(forKey: k) }
+    let gm = AppModel()
+    for i in 1...5 {
+        let day: String = "2026-05-0" + String(i)
+        let act: String = "Pénztár " + String(i)
+        let e = Entry(id: UUID(), date: day, start: nil, end: nil, durationSeconds: 3600, workplace: "Győr", type: ActivityType.meeting.code, typeLabel: ActivityType.meeting.label, unit: Unit.hours.rawValue, quantity: nil, activity: act, source: "manual")
+        gm.add(e)
+    }
+    for mode in [Mode.manual, Mode.timer, Mode.pomodoro] {
+        gm.mode = mode
+        gm.selectedType = .meeting
+        gm.workplace = "Győr"
+        gm.activity = ""
+        func fields(_ v: NSView) -> [NSTextField] {
+            var r: [NSTextField] = []
+            if let t = v as? NSTextField, t.isEditable { r.append(t) }
+            for s in v.subviews { r += fields(s) }
+            return r
+        }
+        let host = NSHostingController(rootView: ContentView().environmentObject(gm))
+        host.sizingOptions = .preferredContentSize
+        let gw = NSWindow(contentViewController: host)
+        gw.appearance = NSAppearance(named: .aqua); gw.backgroundColor = .white
+        gw.setContentSize(NSSize(width: 440, height: 760))
+        gw.makeKeyAndOrderFront(nil)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+        gm.activity = "Pénz"
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        let all = fields(gw.contentView!)
+        if let actField = all.first(where: { $0.stringValue == "Pénz" }) {
+            gw.makeFirstResponder(actField)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            if let out = ProcessInfo.processInfo.environment["OTS_RENDER_DIR"], let cv = gw.contentView, let rep = cv.bitmapImageRepForCachingDisplay(in: cv.bounds) {
+                cv.cacheDisplay(in: cv.bounds, to: rep)
+                try? FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out + "/javaslat-gomb-\(mode == .timer ? "idozito" : (mode == .manual ? "kezi" : "pomodoro")).png"))
+            }
+            let f = actField.convert(actField.bounds, to: nil)
+            let before = gm.entries.count
+            // az 5. javaslat sora: a mező alatt (ablak-koordináta, bal alsó origó); sorközép = 2 + 3 + 11,5 + 23 * k
+            let rowOffset: CGFloat = 2 + 3 + 11.5 + 23 * 4
+            let p = NSPoint(x: f.minX + 60, y: f.minY - rowOffset)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                if let ev = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: gw.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) { gw.sendEvent(ev) }
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+            check("\(mode.rawValue): a Tevékenység 5. javaslatára kattintva (a lista a lejjebb lévő kártya fölött) a mező megkapja a javaslatot", gm.activity.hasPrefix("Pénztár "), "\(gm.activity)")
+            check("\(mode.rawValue): a kattintást nem a lejjebb lévő kártya (gombok) kapta: nem készült bejegyzés", gm.entries.count == before)
+        } else {
+            check("a Tevékenység szövegmező megtalálható", false)
+        }
+        gw.orderOut(nil)
+    }
+    for k in ["draft.workplace", "draft.type", "draft.activity"] { ud.removeObject(forKey: k) }
+}
+
+// MARK: Ünnepnap és Pihenőnap (1.8.0)
+
+section("Ünnepnap és Pihenőnap")
+do {
+    // a húsvétvasárnap 2024–2035
+    let easters: [Int: (Int, Int)] = [2024: (3, 31), 2025: (4, 20), 2026: (4, 5), 2027: (3, 28), 2028: (4, 16), 2029: (4, 1), 2030: (4, 21), 2031: (4, 13), 2032: (3, 28), 2033: (4, 17), 2034: (4, 9), 2035: (3, 25)]
+    var easterOK = true
+    for (y, md) in easters.sorted(by: { $0.key < $1.key }) where HuHolidays.easterSunday(year: y) != (md.0, md.1) {
+        easterOK = false
+        check("húsvét \(y)", false, "\(HuHolidays.easterSunday(year: y)) / \(md)")
+    }
+    check("a húsvétvasárnap 2024–2035 minden évben helyes", easterOK)
+    var yearsOK = true
+    for y in 2024...2035 {
+        let hs = HuHolidays.holidays(year: y)
+        let names = hs.map { $0.name }
+        func find(_ n: String) -> Date? { hs.first { $0.name == n }?.date }
+        let ok = hs.count == 13 && Set(hs.map { ymd($0.date) }).count == 13 && hs == hs.sorted { $0.date < $1.date }
+            && find("Húsvétvasárnap").map { DateUtil.isSunday($0) } == true
+            && find("Pünkösdvasárnap").map { DateUtil.isSunday($0) } == true
+            && find("Nagypéntek").map { DateUtil.gregorian.component(.weekday, from: $0) == 6 } == true
+            && find("Húsvéthétfő").map { DateUtil.gregorian.component(.weekday, from: $0) == 2 } == true
+            && find("Pünkösdhétfő").map { DateUtil.gregorian.component(.weekday, from: $0) == 2 } == true
+            && find("Újév").map { ymd($0) == "\(y)-01-01" } == true
+            && find("Március 15. (nemzeti ünnep)").map { ymd($0) == "\(y)-03-15" } == true
+            && find("Október 23. (nemzeti ünnep)").map { ymd($0) == "\(y)-10-23" } == true
+            && find("Karácsony másnapja").map { ymd($0) == "\(y)-12-26" } == true
+            && names.contains("Mindenszentek") && names.contains("Augusztus 20. (az államalapítás ünnepe)") && names.contains("Május 1. (a munka ünnepe)")
+            && hs.allSatisfy { HuHolidays.name(on: $0.date) == $0.name }
+        if !ok { yearsOK = false; check("ünnepnapok \(y)", false, "\(hs.map { ymd($0.date) + " " + $0.name })") }
+    }
+    check("a 13 magyar munkaszüneti nap 2024–2035 minden évben helyes (húsvét- és pünkösd-számítás, hétköznapok, nevek)", yearsOK)
+    check("nem ünnepnap: nincs név", HuHolidays.name(on: d(2025, 10, 22)) == nil && HuHolidays.name(on: d(2026, 12, 24)) == nil)
+    check("érvénytelen évre nem omlik össze", HuHolidays.holidays(year: -5).count <= 13 && HuHolidays.holidays(year: 0).count <= 13)
+
+    // a modell
+    let ud = UserDefaults.standard
+    let fdir = tmp + "/unnepnap"
+    try? FileManager.default.removeItem(atPath: fdir)
+    ud.set(fdir + "/bejegyzesek.csv", forKey: "dataFile")
+    let fm = AppModel()
+    let oct23 = d(2026, 10, 23)   // péntek
+    check("a kitöltetlen munkaszüneti hétköznap piros jelzést kap (a napi óraszám)", Insights.targetState(day: oct23, entries: [], today: d(2026, 10, 27), targetHours: 8) == .short)
+    check("az Ünnepnap felvehető az ünnepnapra", fm.markFeastDay(oct23))
+    let fe = fm.entries.first { $0.date == "2026-10-23" }
+    check("az Ünnepnap bejegyzés egész napos, a Tevékenység az ünnep hivatalos neve, az OTS-szöveg nagybetűs", fe?.type == ActivityType.feastDay.code && fe?.unit == Unit.wholeDay.rawValue && fe?.activity == "Október 23. (nemzeti ünnep)" && fe?.workplace == "ÜNNEPNAP - OKTÓBER 23. (NEMZETI ÜNNEP)" && fe?.source == "manual" && fe?.durationSeconds == 0, "\(String(describing: fe?.workplace))")
+    check("az Ünnepnap-bejegyzéssel a nap kitöltöttnek számít", Insights.targetState(day: oct23, entries: fm.entries(on: oct23), today: d(2026, 10, 27), targetHours: 8) == .exempt)
+    fm.lastError = nil
+    check("kétszer nem vehető fel ugyanarra a napra", !fm.markFeastDay(oct23) && fm.entries(on: oct23).count == 1)
+    fm.lastError = nil
+    check("nem ünnepnapra nem vehető fel", !fm.markFeastDay(d(2026, 10, 22)) && fm.lastError != nil)
+    fm.lastError = nil
+    check("jövőbeli ünnepnapra nem vehető fel", !fm.markFeastDay(d(2027, 1, 1)))
+    // az OTS-sor: csak Ünnepnap
+    let rowAlone = OTSManual.workRow(day: oct23, entries: fm.entries, rules: true, today: d(2026, 10, 27))
+    check("az OTS Munkahely mezője: ÜNNEPNAP - <NÉV> (nincs !!!)", rowAlone.workplace == "ÜNNEPNAP - OKTÓBER 23. (NEMZETI ÜNNEP)" && rowAlone.hasData && rowAlone.values.isEmpty, rowAlone.workplace)
+    // ünnepnapon végzett munka mellett: az Ünnepnap a munkahelyek elé kerül, az órák is beíródnak, a 8 óra nem számít
+    let nov1 = d(2025, 11, 1)   // szombat, mindenszentek
+    var work = Entry(id: UUID(), date: "2025-11-01", start: nil, end: nil, durationSeconds: 2 * 3600, workplace: "Győr", type: ActivityType.meeting.code, typeLabel: ActivityType.meeting.label, unit: Unit.hours.rawValue, quantity: nil, activity: "", source: "manual")
+    work.id = UUID()
+    fm.add(work)
+    check("munkabejegyzéses napra is felvehető az Ünnepnap", fm.markFeastDay(nov1))
+    let rowBoth = OTSManual.workRow(day: nov1, entries: fm.entries, rules: true, today: d(2026, 10, 27))
+    check("ünnepnapon végzett munka: ÜNNEPNAP - <NÉV>, <munkahelyek>, és az órák is beíródnak", rowBoth.workplace == "ÜNNEPNAP - MINDENSZENTEK, Győr" && rowBoth.values[ActivityType.meeting.code] == 2, rowBoth.workplace)
+    check("ünnepnapi munka mellett nem számít a napi 8 óra", Insights.targetState(day: d(2025, 11, 3), entries: [], today: d(2026, 10, 27), targetHours: 8) == .short && Insights.targetState(day: nov1, entries: fm.entries(on: nov1), today: d(2026, 10, 27), targetHours: 8) == .exempt)
+    // Pihenőnap
+    let rest = AppModel.wholeDayEntry(day: d(2025, 8, 21), type: .restDay, activity: "Áthelyezett munkanap miatt")
+    let rest0 = AppModel.wholeDayEntry(day: d(2025, 8, 22), type: .restDay, activity: "")
+    check("a Pihenőnap OTS-szövege: PIHENŐNAP - <LEÍRÁS>, leírás nélkül PIHENŐNAP", rest.workplace == "PIHENŐNAP - ÁTHELYEZETT MUNKANAP MIATT" && rest0.workplace == "PIHENŐNAP" && rest.unit == Unit.wholeDay.rawValue && rest.type == ActivityType.restDay.code)
+    fm.add(rest)
+    let rowRest = OTSManual.workRow(day: d(2025, 8, 21), entries: fm.entries, rules: true, today: d(2026, 10, 27))
+    check("az OTS-sor a Pihenőnapra: PIHENŐNAP - <LEÍRÁS>", rowRest.workplace == "PIHENŐNAP - ÁTHELYEZETT MUNKANAP MIATT" && rowRest.hasData)
+    check("a többi egész napos típus szövege változatlan", AppModel.wholeDayEntry(day: oct23, type: .dayOff, activity: "x").workplace == "SZABADNAP" && AppModel.wholeDayEntry(day: oct23, type: .publicHoliday, activity: "x").workplace == "MUNKASZÜNETI NAP")
+    // a havi korlát nem vonatkozik rájuk
+    fm.notice = nil
+    for day in 1...8 { fm.add(AppModel.wholeDayEntry(day: d(2025, 6, day), type: day % 2 == 0 ? .feastDay : .restDay, activity: "x")) }
+    check("az Ünnepnap és a Pihenőnap nem számít a havi munkaszüneti nap és szabadnap korlátba (nincs figyelmeztetés)", fm.notice == nil)
+    // CSV oda-vissza
+    let back = try? CSV.decode(CSV.encode(fm.entries)).entries
+    check("a típusok és a szöveg a CSV-ből visszaolvashatók", back?.contains { $0.type == "FEAST_DAY" && $0.workplace == "ÜNNEPNAP - OKTÓBER 23. (NEMZETI ÜNNEP)" } == true && back?.contains { $0.type == "REST_DAY" && $0.workplace == "PIHENŐNAP - ÁTHELYEZETT MUNKANAP MIATT" } == true)
+    check("az új típusok elérhetők a listában", ActivityType.all.contains(.feastDay) && ActivityType.all.contains(.restDay) && ActivityType.lookup(code: "FEAST_DAY") == .feastDay && ActivityType.lookup(label: "Pihenőnap") == .restDay)
+}
+
+// MARK: Szabad szöveges rögzítés: importfájl, áttekintés, jóváhagyás (1.8.0)
+
+section("Szabad szöveges rögzítés")
+do {
+    let now = Date()
+    func ent(date: String, start: String? = nil, end: String? = nil, secs: Int = 0, type: ActivityType = .administration, wp: String = "Mór", act: String = "Levelezés", dep: String? = nil, arr: String? = nil, qty: Int? = nil) -> Entry {
+        var st: Date?, en: Date?
+        if let s = start, let e = end, let day = Fmt.dayFormatter.date(from: date) {
+            func at(_ hm: String) -> Date? {
+                let p = hm.split(separator: ":").compactMap { Int($0) }
+                return p.count == 2 ? Calendar.current.date(bySettingHour: p[0], minute: p[1], second: 0, of: day) : nil
+            }
+            st = at(s); en = at(e)
+        }
+        let dur = (st != nil && en != nil) ? Int(en!.timeIntervalSince(st!)) : secs
+        return Entry(id: UUID(), date: date, start: st, end: en, durationSeconds: dur, workplace: wp, type: type.code, typeLabel: type.label, unit: type.unit.rawValue, quantity: qty ?? (type.hasQuantity ? 1 : nil), activity: act, source: "ai", departure: dep, arrival: arr)
+    }
+    let day = ymd(DateUtil.addDays(now, -2))
+    // ellenőrzés
+    check("rendben lévő, időponttal rögzített bejegyzés", ImportReview.check(ent(date: day, start: "09:00", end: "10:00"), existing: [], now: now).problems.isEmpty)
+    check("csak óraszámmal (kezdés és vég nélkül) is rendben", ImportReview.check(ent(date: day, secs: 7200, type: .meeting), existing: [], now: now).problems.isEmpty)
+    check("óra típusnál az időtartam kötelező", !ImportReview.check(ent(date: day), existing: [], now: now).problems.isEmpty)
+    check("a vég a kezdés után legyen", !ImportReview.check(ent(date: day, start: "10:00", end: "09:00"), existing: [], now: now).problems.isEmpty)
+    check("jövőbeli nap nem fogadható el", !ImportReview.check(ent(date: ymd(DateUtil.addDays(now, 2)), secs: 3600), existing: [], now: now).problems.isEmpty)
+    check("hiányzó munkahely hiba (nem egész napos típusnál)", !ImportReview.check(ent(date: day, secs: 3600, wp: ""), existing: [], now: now).problems.isEmpty)
+    check("egész napos típusnál nem kell munkahely", ImportReview.check(ent(date: day, type: .dayOff, wp: "", act: ""), existing: [], now: now).problems.isEmpty)
+    check("alkalom típusnál a mennyiség elég, időtartam nem kell", ImportReview.check(ent(date: day, type: .preaching, qty: 1), existing: [], now: now).problems.isEmpty)
+    check("Utazásnál a Kiindulás, a Cél, az Érkezés és a Tevékenység kötelező", ImportReview.check(ent(date: day, secs: 3600, type: .travel, wp: "Tata", act: "Kiszállás", dep: "Székesfehérvár", arr: "Székesfehérvár"), existing: [], now: now).problems.isEmpty
+        && !ImportReview.check(ent(date: day, secs: 3600, type: .travel, wp: "Tata", act: "", dep: "Székesfehérvár", arr: "Székesfehérvár"), existing: [], now: now).problems.isEmpty
+        && !ImportReview.check(ent(date: day, secs: 3600, type: .travel, wp: "", act: "x", dep: "A", arr: "A"), existing: [], now: now).problems.isEmpty)
+    var kmBad = ent(date: day, secs: 3600, type: .travel, wp: "Tata", act: "x", dep: "A", arr: "A"); kmBad.startKm = 100; kmBad.endKm = 90
+    check("a rossz km-állás hiba", !ImportReview.check(kmBad, existing: [], now: now).problems.isEmpty)
+    let existing = ent(date: day, start: "09:00", end: "10:00")
+    let dup = ImportReview.check(ent(date: day, start: "09:00", end: "10:00"), existing: [existing], now: now)
+    check("a már meglévő bejegyzés duplikátumként jelölt (nem akadály)", dup.duplicate && dup.problems.isEmpty && !dup.warnings.isEmpty)
+    let over = ImportReview.check(ent(date: day, start: "09:30", end: "10:30", act: "Más"), existing: [existing], now: now)
+    check("az átfedés figyelmeztetés, nem akadály", !over.duplicate && over.problems.isEmpty && over.warnings.contains { $0.contains("Átfed") })
+
+    // a skill Python-kódjával írt importfájl beolvasható és elfogadható (a kód a skill-sablonból jön)
+    let skillRef = (ProcessInfo.processInfo.environment["OTS_SKILL_SOURCE"].map { $0 + "/references/szabad-szoveg.md" }) ?? ""
+    let refText = (try? String(contentsOfFile: skillRef, encoding: .utf8)) ?? ""
+    var code = ""
+    if let a = refText.range(of: "```python\n"), let b = refText.range(of: "\n```", range: a.upperBound..<refText.endIndex) { code = String(refText[a.upperBound..<b.lowerBound]) }
+    check("a skill leírásában van Python-kód", code.contains("bejegyzesek-import.csv") && code.contains("ROWS"))
+    let idir = tmp + "/ai-import"
+    try? FileManager.default.removeItem(atPath: idir)
+    try? FileManager.default.createDirectory(atPath: idir, withIntermediateDirectories: true)
+    let home = idir + "/home"
+    let appSupport = home + "/Library/Application Support/OTS Munkajelentő Tracker"
+    try? FileManager.default.createDirectory(atPath: appSupport, withIntermediateDirectories: true)
+    let dataPath = idir + "/adatok/bejegyzesek.csv"
+    try? FileManager.default.createDirectory(atPath: idir + "/adatok", withIntermediateDirectories: true)
+    try? "{\"dataFile\": \"\(dataPath)\"}".write(toFile: appSupport + "/beallitasok.json", atomically: true, encoding: .utf8)
+    let d1 = ymd(DateUtil.addDays(now, -1)), d2 = ymd(DateUtil.addDays(now, -3))
+    let rowsCode = """
+    ROWS = [
+        {"Dátum": "\(d1)", "Kezdés": "09:00:00", "Vége": "10:00:00", "Időtartam (mp)": 3600, "Időtartam (óó:pp)": "1:00", "Munkahely": "Székesfehérvár", "Típus kód": "ADMINISTRATION", "Típus": "Adminisztráció", "Egység": "ora", "Tevékenység": "Levelezés; \\"idézőjeles\\" szöveg"},
+        {"Dátum": "\(d2)", "Időtartam (mp)": 7200, "Időtartam (óó:pp)": "2:00", "Munkahely": "Mór", "Típus kód": "MEETING", "Típus": "Értekezlet", "Egység": "ora", "Tevékenység": "Megbeszélés"},
+        {"Dátum": "\(d2)", "Indulás": "Székesfehérvár", "Munkahely": "Mór", "Érkezés": "Székesfehérvár", "Időtartam (mp)": 3600, "Időtartam (óó:pp)": "1:00", "Típus kód": "TRAVEL", "Típus": "Utazás", "Egység": "ora", "Tevékenység": "Kiszállás"},
+        {"Dátum": "\(d2)", "Típus kód": "DAY_OFF", "Típus": "Szabadnap", "Egység": "egesz_nap", "Munkahely": "SZABADNAP"},
+    ]
+    """
+    if let a = code.range(of: "ROWS = ["), let b = code.range(of: "\n]\n", range: a.upperBound..<code.endIndex) {
+        code.replaceSubrange(a.lowerBound..<b.upperBound, with: rowsCode + "\n")
+    }
+    let scriptPath = idir + "/ir.py"
+    try? code.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+    func runPy() -> Int32 {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        p.arguments = ["python3", scriptPath]
+        var env = ProcessInfo.processInfo.environment; env["HOME"] = home
+        p.environment = env
+        p.standardOutput = Pipe(); p.standardError = Pipe()
+        do { try p.run() } catch { return -1 }
+        p.waitUntilExit()
+        return p.terminationStatus
+    }
+    check("a skill Python-kódja lefut", runPy() == 0)
+    let importPath = idir + "/adatok/bejegyzesek-import.csv"
+    check("az importfájl az adatfájl mellett jön létre", FileManager.default.fileExists(atPath: importPath))
+    check("a skill Python-kódja másodszor is lefut (hozzáfűzés, a fejléc nem duplázódik)", runPy() == 0 && ((try? String(contentsOfFile: importPath, encoding: .utf8)) ?? "").components(separatedBy: "Azonosító;Dátum").count == 2)
+    let raw = (try? Data(contentsOf: URL(fileURLWithPath: importPath))) ?? Data()
+    let decoded = try? CSV.decode(raw)
+    check("az importfájl az alkalmazás CSV-olvasójával beolvasható (2 × 4 bejegyzés, azonosítóval, Forrás = ai)", decoded?.entries.count == 8 && decoded?.entries.allSatisfy { $0.source == "ai" } == true && Set(decoded?.entries.map { $0.id } ?? []).count == 8, "\(decoded?.entries.count ?? -1)")
+    check("a CSV-be írt idézőjeles szöveg épen visszajön", decoded?.entries.first?.activity == "Levelezés; \"idézőjeles\" szöveg", decoded?.entries.first?.activity ?? "")
+    check("a Python-kóddal írt fájl beolvasása után nincs kihagyott sor", decoded?.warnings.isEmpty == true, "\(decoded?.warnings ?? [])")
+    let rev = ImportReview.items(from: raw, existing: [], now: now)
+    check("a skill-kóddal írt bejegyzések mind elfogadhatók az áttekintésben", rev.items.count == 8 && rev.items.allSatisfy { $0.acceptable }, "\(rev.items.map { $0.problems })")
+
+    // a modell: felismerés, elfogadás, elvetés
+    let ud = UserDefaults.standard
+    ud.set(dataPath, forKey: "dataFile")
+    let im = AppModel()
+    check("az alkalmazás megtalálja az importfájlt (8 áttekintendő bejegyzés)", im.importItems.count == 8 && im.importItems.allSatisfy { $0.acceptable })
+    let ids = Set(im.importItems.prefix(3).map { $0.id })
+    check("elfogadáskor a bejegyzések az adatok közé kerülnek, a fájlból kikerülnek", im.acceptImport(ids) == 3 && im.entries.filter { $0.source == "ai" }.count == 3 && im.importItems.count == 5)
+    let remaining = (try? CSV.decode(Data(contentsOf: URL(fileURLWithPath: importPath))).entries.count) ?? -1
+    check("az importfájlban csak a még áttekintésre váró bejegyzések maradnak", remaining == 5, "\(remaining)")
+    // ugyanaz a bejegyzés újra az importfájlban: duplikátum jelzéssel
+    let again = ImportReview.items(from: raw, existing: im.entries, now: now)
+    check("az már felvett bejegyzések újra beolvasva duplikátumként jelöltek", again.items.filter { $0.duplicate }.count >= 3)
+    im.discardImport(Set(im.importItems.map { $0.id }))
+    check("elvetéskor a fájl törlődik, a lista kiürül, az adatok változatlanok", im.importItems.isEmpty && !FileManager.default.fileExists(atPath: importPath) && im.entries.filter { $0.source == "ai" }.count == 3)
+    // hibás bejegyzés nem fogadható el, a többi igen
+    let badCSV = "Azonosító;Dátum;Típus kód;Típus;Egység;Munkahely;Időtartam (mp);Forrás\r\n;\(d1);MEETING;Értekezlet;ora;;3600;ai\r\n;\(d1);MEETING;Értekezlet;ora;Mór;3600;ai\r\n"
+    try? Data(badCSV.utf8).write(to: URL(fileURLWithPath: importPath))
+    im.refreshImport(force: true, announce: false)
+    check("a hibás bejegyzés (hiányzó munkahely) nem fogadható el, a másik igen", im.importItems.count == 2 && im.importItems.filter { $0.acceptable }.count == 1)
+    check("a nem elfogadható bejegyzést az elfogadás nem veszi fel", im.acceptImport(Set(im.importItems.map { $0.id })) == 1 && im.importItems.count == 1)
+    im.discardImport(Set(im.importItems.map { $0.id }))
+    check("az importfájl nélkül nincs áttekintendő bejegyzés", im.importItems.isEmpty)
+    ud.removeObject(forKey: "dataFile")
 }
 
 print(failures == 0 ? "MINDEN TESZT RENDBEN (\(total) ellenőrzés)" : "HIBÁK: \(failures) / \(total)")

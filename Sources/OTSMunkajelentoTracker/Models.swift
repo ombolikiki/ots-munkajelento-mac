@@ -119,10 +119,14 @@ struct ActivityType: Identifiable, Hashable {
     static let holiday = b("HOLIDAY", "Nem munkaidő", "Szabadság", nil, .wholeDay)
     static let dayOff = b("DAY_OFF", "Nem munkaidő", "Szabadnap", nil, .wholeDay)
     static let publicHoliday = b("PUBLIC_HOLIDAY", "Nem munkaidő", "Munkaszüneti nap", nil, .wholeDay)
+    /// Ünnepnap: a heti munkaszüneti nap és szabadnap felett jár; az OTS-be `ÜNNEPNAP - <NÉV>` kerül (nem OTS-rács mező). A havi korlátba nem számít.
+    static let feastDay = b("FEAST_DAY", "Nem munkaidő", "Ünnepnap", nil, .wholeDay)
+    /// Pihenőnap (rendelettel változó); az OTS-be `PIHENŐNAP - <leírás>` kerül. A havi korlátba nem számít.
+    static let restDay = b("REST_DAY", "Nem munkaidő", "Pihenőnap", nil, .wholeDay)
 
     static let builtins: [ActivityType] = [
         preaching, visiting, officeWork, meeting, evangelisation, bibleHour, missionVisiting,
-        training, heldTraining, administration, preparing, travel, holiday, dayOff, publicHoliday
+        training, heldTraining, administration, preparing, travel, holiday, dayOff, publicHoliday, feastDay, restDay
     ]
 
     static let customGroup = "Egyéni"

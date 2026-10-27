@@ -13,11 +13,7 @@ extension AppModel {
     /// Az utolsó rögzített érkező km-állás (az új út induló állásának előtöltéséhez).
     var lastEndKm: Int? { entries.last(where: { $0.endKm != nil })?.endKm }
 
-    /// A nap, amelyre az űrlap éppen bejegyzést készít (a kézi bevitelnél a kiválasztott nap, egyébként a mai vagy a naptári rés napja).
-    private var kmReferenceKey: String {
-        let day: Date = mode == .manual ? selectedDay : (pendingSlot?.day ?? Date())
-        return Fmt.dayFormatter.string(from: day)
-    }
+    private var kmReferenceKey: String { Fmt.dayFormatter.string(from: formReferenceDay) }
 
     /// Az előző út érkező km-állása egy új bejegyzés előtt (a megadott napig bezárólag).
     func previousEndKm(onOrBefore dayKey: String, excluding id: UUID? = nil) -> Int? {

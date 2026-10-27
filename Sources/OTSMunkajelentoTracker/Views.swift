@@ -51,13 +51,14 @@ struct Card: ViewModifier {
         content
             .padding(compact ? 8 : 12)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // A keret is a háttér része (nem overlay), különben a kártya alsó széle a javaslatlistán is átvonulna.
             .background(
-                RoundedRectangle(cornerRadius: compact ? 9 : 12, style: .continuous)
-                    .fill(Color.primary.opacity(0.05))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: compact ? 9 : 12, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                ZStack {
+                    RoundedRectangle(cornerRadius: compact ? 9 : 12, style: .continuous)
+                        .fill(Color.primary.opacity(0.05))
+                    RoundedRectangle(cornerRadius: compact ? 9 : 12, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                }
             )
     }
 }
@@ -268,6 +269,17 @@ struct ContentView: View {
             if compact {
                 Text(shortSummary).font(.caption2).foregroundStyle(.secondary)
             }
+            if !m.importItems.isEmpty {
+                Button { ImportReviewWindow.shared.show(model: m) } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "tray.and.arrow.down.fill").font(.system(size: compact ? 12 : 14))
+                        Text("\(m.importItems.count)").font(.system(size: 10, weight: .bold)).monospacedDigit()
+                    }
+                    .foregroundStyle(Theme.warn)
+                }
+                .buttonStyle(.plain)
+                .help("\(m.importItems.count) szabad szöveggel felvitt bejegyzés vár áttekintésre: kattints a megnyitáshoz")
+            }
             if m.skillUpdateAvailable {
                 Button { m.updateSkill() } label: {
                     Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
@@ -330,7 +342,7 @@ struct ContentView: View {
     }
 
     /// Mennyi hely marad a napi lista soraira a képernyőn.
-    private var listBudget: CGFloat { max(60, Self.maxContentHeight - baseHeight - extraLowerHeight - 24) }
+    private var listBudget: CGFloat { max(36, Self.maxContentHeight - baseHeight - extraLowerHeight - 24) }
 
     private var reminderHeight: CGFloat { compact ? 44 : 54 }
 
@@ -366,6 +378,7 @@ struct ContentView: View {
                 .foregroundStyle(Theme.stop)
             Text("\(n) napja nem írtál munkajelentőt.")
                 .font(.system(size: compact ? 11.5 : 12.5, weight: .semibold))
+                .lineLimit(1).minimumScaleFactor(0.75)   // nem tör két sorba (a magasságbecslés egy sorral számol)
             Spacer(minLength: 4)
             Button("Kézi bevitel") {
                 m.selectedDay = DateUtil.addDays(Date(), -1)
@@ -862,6 +875,20 @@ struct ManualView: View {
             DatePicker("Nap", selection: day, in: ...Date(), displayedComponents: .date)
                 .environment(\.locale, Locale(identifier: "hu_HU"))
 
+            // magyar munkaszüneti napon: Ünnepnap egy kattintással (munkabejegyzés mellett is; ilyenkor a napi óraszám nem számít)
+            if let name = m.holidayName(on: m.selectedDay), !m.hasFeastDay(on: m.selectedDay), !m.isFuture(m.selectedDay) {
+                Button { m.markFeastDay(m.selectedDay) } label: {
+                    Label("Ünnepnap: \(name)", systemImage: "star.circle")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .padding(.horizontal, 9).padding(.vertical, 4)
+                        .background(Capsule().fill(Theme.warn.opacity(0.18)))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Ünnepnap bejegyzés erre a napra. Az OTS-be ÜNNEPNAP - <NÉV> kerül; ha dolgoztál, a munkabejegyzés mellé is felvehető, ilyenkor nem számít a napi óraszám.")
+            }
+
             if needsTime && m.selectedType != nil {
                 HStack(spacing: 8) {
                     ForEach(TimeMode.allCases) { tm in
@@ -1188,6 +1215,7 @@ struct DayListView: View {
 
     /// Második sor: utazásnál az útvonal (Indulás → Munkahely(ek) → Érkezés), egyébként munkahely · tevékenység.
     private func detail(_ e: Entry) -> String {
+        if e.type == ActivityType.feastDay.code || e.type == ActivityType.restDay.code { return e.activity }
         if let dep = e.departure, let arr = e.arrival, !dep.isEmpty || !arr.isEmpty {
             let route = ([dep] + e.workplace.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } + [arr])
                 .filter { !$0.isEmpty }.joined(separator: " → ")
@@ -1318,6 +1346,14 @@ struct MissingDaysView: View {
                 .buttonStyle(.plain)
                 .help("Szabadnapnak jelölöm ezt a napot")
             }
+            if kind != .attendance, let name = m.holidayName(on: d), !m.hasFeastDay(on: d) {
+                // magyar munkaszüneti napon: egy kattintással Ünnepnap (az OTS-be ÜNNEPNAP - <NÉV> kerül; munka mellett is felvehető)
+                Button { m.markFeastDay(d) } label: {
+                    Image(systemName: "star.circle").font(.system(size: 10, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Ünnepnapnak jelölöm: \(name)")
+            }
         }
         .padding(.horizontal, 9).padding(.vertical, 4)
         .foregroundStyle(selected ? Color.white : Color.primary)
@@ -1325,6 +1361,11 @@ struct MissingDaysView: View {
         .contextMenu {
             if kind == .missing {
                 Button("Szabadnapnak jelölöm") { m.markDayOff(d) }
+            }
+            if kind != .attendance, let name = m.holidayName(on: d), !m.hasFeastDay(on: d) {
+                Button("Ünnepnapnak jelölöm: \(name)") { m.markFeastDay(d) }
+            }
+            if kind == .missing {
                 Button("Megnyitás a Kézi bevitelben") { m.selectedDay = d; m.mode = .manual }
             }
         }

@@ -180,7 +180,12 @@ enum OTSManual {
         if wholeDay.contains(where: { $0.type == ActivityType.publicHoliday.code }) { row.workplace = "MUNKASZÜNETI NAP"; row.hasData = true }
         if row.hasData { return row }
 
+        // Ünnepnap és Pihenőnap: `ÜNNEPNAP - <NÉV>` / `PIHENŐNAP - <LEÍRÁS>` a Munkahely mező elején; munkabejegyzés mellett is felvehető
+        let feastText = wholeDay.filter { $0.type == ActivityType.feastDay.code || $0.type == ActivityType.restDay.code }
+            .map { AppModel.wholeDayWorkplace(type: $0.activityType ?? .feastDay, note: $0.activity) }.joined(separator: ", ")
+
         if timed.isEmpty {
+            if !feastText.isEmpty { row.workplace = feastText; row.hasData = true; return row }
             if rules {   // OTS-szempontból üres nap
                 row.workplace = "!!!"
                 row.notes.append("üres nap: !!! jelölés")
@@ -205,7 +210,7 @@ enum OTSManual {
             values[t] = maxValue
         }
 
-        row.workplace = workplaceList(timed).joined(separator: ", ")
+        row.workplace = ([feastText, workplaceList(timed).joined(separator: ", ")]).filter { !$0.isEmpty }.joined(separator: ", ")
         row.values = values.filter { $0.value > 0 }
         return row
     }

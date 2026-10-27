@@ -147,6 +147,7 @@ struct SettingsView: View {
         case .ots:
             attendanceCard
             skillCard
+            freeTextCard
         case .data:
             dataCard
             otherCard
@@ -165,6 +166,23 @@ struct SettingsView: View {
             Text("A Munkahely, a Kiindulás, a Cél, a Tevékenység típusa és a Tevékenység mezőben gépelés közben javaslatokat kapsz a mentett helyszínekből, a típusokból és a korábbi tevékenységekből (például „ügy” → Ügyintézés). ↓ és ↑ lépked, Enter vagy Tab elfogadja, Esc bezárja. Kikapcsolva a Tevékenység típusa a régi legördülő lista.")
                 .font(.caption2).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }.card()
+    }
+
+    // MARK: Szabad szöveges rögzítés
+
+    private var freeTextCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Szabad szöveges rögzítés").font(.subheadline.weight(.semibold))
+            Text("Az MI-asszisztensnek (a telepített OTS Adminisztráció skill „Bejegyzések felvitele szabad szövegből” feladata) leírhatod szabadon, mit csináltál („Ma 9–10 között adminisztráltam, tegnapelőtt volt egy két órás megbeszélésem”). Ha valami nem egyértelmű, megkérdezi. A bejegyzéseket az adatfájl melletti `bejegyzesek-import.csv` fájlba írja, és csak az itt megnyitható áttekintés után, a jóváhagyásoddal kerülnek az adataid közé.")
+                .font(.caption2).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button(m.importItems.isEmpty ? "Áttekintés megnyitása" : "Áttekintés megnyitása (\(m.importItems.count))") {
+                    ImportReviewWindow.shared.show(model: m)
+                }
+                Spacer()
+            }
         }.card()
     }
 

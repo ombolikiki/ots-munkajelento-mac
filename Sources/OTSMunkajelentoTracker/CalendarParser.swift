@@ -53,7 +53,7 @@ enum CalendarProblem: Equatable {
         case .missingActivity: return "Az Utazásnál a Tevékenység (az út célja) kötelező."
         case .missingDeparture: return "Nincs megadva az Indulás, és nincs székhely sem a Beállításokban."
         case .multipleAddresses: return "Több cím szerepel a Helyszínben; válaszd ki a munkahelyet."
-        case .wholeDayNotAllowed: return "Egész napos eseményként csak a Szabadság, a Szabadnap és a Munkaszüneti nap értelmezett."
+        case .wholeDayNotAllowed: return "Egész napos eseményként csak a Szabadság, a Szabadnap, a Munkaszüneti nap, az Ünnepnap és a Pihenőnap értelmezett."
         case .noDuration: return "Az esemény időtartama nulla vagy negatív."
         case .tooLong: return "Az esemény túl hosszú (több mint 31 nap)."
         }
@@ -91,7 +91,9 @@ enum CalendarParser {
         ("Utazás", .travel), ("Utaz", .travel),
         ("Szabadság", .holiday),
         ("Szabadnap", .dayOff),
-        ("Munkaszüneti nap", .publicHoliday), ("Munkaszüneti", .publicHoliday)
+        ("Munkaszüneti nap", .publicHoliday), ("Munkaszüneti", .publicHoliday),
+        ("Ünnepnap", .feastDay),
+        ("Pihenőnap", .restDay)
     ]
 
     private static let foldedTypeNames: [(chars: [String], type: ActivityType)] = typeNames
